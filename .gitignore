@@ -13,6 +13,5 @@ __*
 *.7z
 
 # Built files
-dist
 .zip
 
