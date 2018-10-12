@@ -6,7 +6,7 @@
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "@esri/arcgis-rest-groups", "@esri/arcgis-rest-items", "@esri/arcgis-rest-request", "./dashboard", "./FeatureService", "./item", "./group", "./webmap", "./webMappingApp"], factory);
+        define(["require", "exports", "@esri/arcgis-rest-groups", "@esri/arcgis-rest-items", "@esri/arcgis-rest-request", "./dashboard", "./featureService", "./item", "./group", "./webmap", "./webMappingApp"], factory);
     }
 })(function (require, exports) {
     "use strict";
@@ -15,7 +15,7 @@
     var items = require("@esri/arcgis-rest-items");
     var arcgis_rest_request_1 = require("@esri/arcgis-rest-request");
     var dashboard_1 = require("./dashboard");
-    var FeatureService_1 = require("./FeatureService");
+    var featureService_1 = require("./featureService");
     var item_1 = require("./item");
     var group_1 = require("./group");
     var webmap_1 = require("./webmap");
@@ -62,7 +62,7 @@
                                 newItem = new dashboard_1.Dashboard(itemSection);
                                 break;
                             case "Feature Service":
-                                newItem = new FeatureService_1.FeatureService(itemSection);
+                                newItem = new featureService_1.FeatureService(itemSection);
                                 break;
                             case "Web Map":
                                 newItem = new webmap_1.Webmap(itemSection);
