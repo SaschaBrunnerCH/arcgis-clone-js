@@ -48,8 +48,12 @@
                 _super.prototype.init.call(_this, requestOptions)
                     .then(function () {
                     // To have enough information for reconstructing the service, we'll supplement
-                    // the item and data sections with sections for the service, full layers, and 
+                    // the item and data sections with sections for the service, full layers, and
                     // full tables
+                    // Add to the standard cost of creating an item: extra for creating because they're
+                    // slower than other items to create and extra because they have to be moved to the 
+                    // desired folder
+                    _this.estimatedCost += 2;
                     // Get the service description
                     var serviceUrl = _this.itemSection.url;
                     arcgis_rest_request_1.request(serviceUrl + "?f=json", requestOptions)
@@ -72,6 +76,20 @@
                             .then(function (results) {
                             _this.layers = results[0];
                             _this.tables = results[1];
+                            // Update cost based on number of layers & tables; doubled because they're extra slow
+                            _this.estimatedCost += _this.layers.length * 2;
+                            _this.estimatedCost += _this.tables.length * 2;
+                            // Update cost based on number of relationships; doubled because they're extra slow
+                            _this.layers.forEach(function (item) {
+                                if (Array.isArray(item.relationships)) {
+                                    _this.estimatedCost += item.relationships.length * 2;
+                                }
+                            });
+                            _this.tables.forEach(function (item) {
+                                if (Array.isArray(item.relationships)) {
+                                    _this.estimatedCost += item.relationships.length * 2;
+                                }
+                            });
                             resolve(_this);
                         });
                     });

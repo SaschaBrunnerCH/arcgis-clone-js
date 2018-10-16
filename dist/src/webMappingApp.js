@@ -33,6 +33,7 @@
                 // Fetch item data section
                 _super.prototype.init.call(_this, requestOptions)
                     .then(function () {
+                    _this.estimatedCost += 1; // cost to update URL after item is created
                     // Extract the dependencies
                     if (_this.dataSection && _this.dataSection.values) {
                         var values = _this.dataSection.values;

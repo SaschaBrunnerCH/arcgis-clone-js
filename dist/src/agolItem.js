@@ -23,6 +23,7 @@
             }
             this.dependencies = [];
             this.itemSection = itemSection;
+            this.estimatedCost = 1;
             this.removeUncloneableItemProperties();
         }
         /**

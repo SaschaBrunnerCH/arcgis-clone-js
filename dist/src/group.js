@@ -41,6 +41,7 @@
                 _this.getGroupContentsTranche(_this.itemSection.id, pagingRequest)
                     .then(function (contents) {
                     _this.dependencies = contents;
+                    _this.estimatedCost += _this.dependencies.length;
                     resolve(_this);
                 }, function (error) {
                     reject(error);
