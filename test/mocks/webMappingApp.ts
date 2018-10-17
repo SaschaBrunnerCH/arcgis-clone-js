@@ -14,9 +14,9 @@
  | limitations under the License.
  */
 
-import { IItem } from "@esri/arcgis-rest-common-types";
+// import { IItem } from "@esri/arcgis-rest-common-types";
 
-export const WebMappingAppItemSuccessResponse: IItem = {
+export const WebMappingAppItemSuccessResponse: any = {
   "id": "wma1234657890",
   "owner": "LocalGovTryItLive",
   "created": 1520968147000,

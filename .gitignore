@@ -16,3 +16,5 @@ __*
 dist
 .zip
 
+/coverage
+/dist

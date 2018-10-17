@@ -14,9 +14,9 @@
  | limitations under the License.
  */
 
-import { IItem } from "@esri/arcgis-rest-common-types";
+// import { IItem } from "@esri/arcgis-rest-common-types";
 
-export const DashboardItemSuccessResponse: IItem = {
+export const DashboardItemSuccessResponse: any = {
   "id": "dash1234657890",
   "owner": "LocalGovTryItLive",
   "created": 1520967813000,
