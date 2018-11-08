@@ -19,199 +19,679 @@
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "tslib", "@esri/arcgis-rest-items", "@esri/arcgis-rest-sharing"], factory);
+        define(["require", "exports", "tslib", "@esri/arcgis-rest-items", "@esri/arcgis-rest-groups", "@esri/arcgis-rest-feature-service-admin", "@esri/arcgis-rest-sharing", "@esri/arcgis-rest-request", "./fullItemHierarchy", "./dependencies"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var tslib_1 = require("tslib");
     var items = require("@esri/arcgis-rest-items");
+    var groups = require("@esri/arcgis-rest-groups");
+    var featureServiceAdmin = require("@esri/arcgis-rest-feature-service-admin");
     var sharing = require("@esri/arcgis-rest-sharing");
-    var SortVisitColor;
-    (function (SortVisitColor) {
-        SortVisitColor[SortVisitColor["White"] = 0] = "White";
-        SortVisitColor[SortVisitColor["Gray"] = 1] = "Gray";
-        SortVisitColor[SortVisitColor["Black"] = 2] = "Black"; // finished
-    })(SortVisitColor || (SortVisitColor = {}));
-    var Solution = /** @class */ (function () {
-        function Solution() {
-        }
-        /**
-         * Creates a Solution item containing JSON descriptions of items forming the solution.
-         *
-         * @param title Title for Solution item to create
-         * @param collection Hash of JSON descriptions of items to publish into Solution
-         * @param access Access to set for item: 'public', 'org', 'private'
-         * @param requestOptions Options for the request
-         * @returns A promise that will resolve with an object reporting success and the Solution id
-         */
-        Solution.publishItemJSON = function (title, collection, access, requestOptions) {
-            return new Promise(function (resolve) {
-                // Define the solution item
-                var itemSection = {
-                    title: title,
-                    type: 'Solution',
-                    itemType: 'text',
-                    access: access,
-                    listed: false,
-                    commentsEnabled: false
-                };
-                var dataSection = {
-                    items: collection
-                };
-                // Create it and add its data section
-                var options = tslib_1.__assign({ title: title, item: itemSection }, requestOptions);
-                items.createItem(options)
-                    .then(function (results) {
-                    if (results.success) {
-                        var options_1 = tslib_1.__assign({ id: results.id, data: dataSection }, requestOptions);
-                        items.addItemJsonData(options_1)
+    var arcgis_rest_request_1 = require("@esri/arcgis-rest-request");
+    var fullItemHierarchy_1 = require("./fullItemHierarchy");
+    var dependencies_1 = require("./dependencies");
+    /**
+     * Converts one or more AGOL items and their dependencies into a hash by id of JSON item descriptions.
+     *
+     * ```typescript
+     * import { IItemHash } from "../src/fullItemHierarchy";
+     * import { createSolution } from "../src/solution";
+     *
+     * getFullItemHierarchy(["6fc5992522d34f26b2210d17835eea21", "9bccd0fac5f3422c948e15c101c26934"])
+     * .then(
+     *   (response:IItemHash) => {
+     *     let keys = Object.keys(response);
+     *     console.log(keys.length);  // => "6"
+     *     console.log((response[keys[0]] as IFullItem).type);  // => "Web Mapping Application"
+     *     console.log((response[keys[0]] as IFullItem).item.title);  // => "ROW Permit Public Comment"
+     *     console.log((response[keys[0]] as IFullItem).text.source);  // => "bb3fcf7c3d804271bfd7ac6f48290fcf"
+     *   },
+     *   error => {
+     *     // (should not see this as long as both of the above ids--real ones--stay available)
+     *     console.log(error); // => "Item or group does not exist or is inaccessible: " + the problem id number
+     *   }
+     * );
+     * ```
+     *
+     * @param solutionRootIds AGOL id string or list of AGOL id strings
+     * @param requestOptions Options for requesting information from AGOL
+     * @returns A promise that will resolve with a hash by id of IFullItems;
+     * if any id is inaccessible, a single error response will be produced for the set
+     * of ids
+     */
+    function createSolution(solutionRootIds, requestOptions) {
+        return new Promise(function (resolve, reject) {
+            // Get the items forming the solution
+            fullItemHierarchy_1.getFullItemHierarchy(solutionRootIds, requestOptions)
+                .then(function (solution) {
+                var adjustmentPromises = [];
+                // Prepare the Solution by adjusting its items
+                Object.keys(solution).forEach(function (key) {
+                    var fullItem = solution[key];
+                    // 1. remove unwanted properties
+                    fullItem.item = removeUndesirableItemProperties(fullItem.item);
+                    // 2. for web mapping apps,
+                    //    a. generalize app URL
+                    if (fullItem.type === "Web Mapping Application") {
+                        generalizeWebMappingApplicationURLs(fullItem);
+                        // 3. for feature services,
+                        //    a. fill in missing data
+                        //    b. get layer & table details
+                        //    c. generalize layer & table URLs
+                    }
+                    else if (fullItem.type === "Feature Service") {
+                        adjustmentPromises.push(fleshOutFeatureService(fullItem, requestOptions));
+                    }
+                });
+                if (adjustmentPromises.length === 0) {
+                    resolve(solution);
+                }
+                else {
+                    Promise.all(adjustmentPromises)
+                        .then(function () { return resolve(solution); });
+                }
+            }, reject);
+        });
+    }
+    exports.createSolution = createSolution;
+    /**
+     * Creates a Solution item containing JSON descriptions of items forming the solution.
+     *
+     * @param title Title for Solution item to create
+     * @param solution Hash of JSON descriptions of items to publish into Solution
+     * @param access Access to set for item: 'public', 'org', 'private'
+     * @param requestOptions Options for the request
+     * @returns A promise that will resolve with an object reporting success and the Solution id
+     */
+    function publishSolution(title, solution, access, requestOptions) {
+        return new Promise(function (resolve) {
+            // Define the solution item
+            var item = {
+                title: title,
+                type: "Solution",
+                itemType: "text",
+                access: access,
+                listed: false,
+                commentsEnabled: false
+            };
+            var data = {
+                items: solution
+            };
+            // Create it and add its data section
+            var options = tslib_1.__assign({ title: title, item: item }, requestOptions);
+            items.createItem(options)
+                .then(function (results) {
+                if (results.success) {
+                    var options_1 = tslib_1.__assign({ id: results.id, data: data }, requestOptions);
+                    items.addItemJsonData(options_1)
+                        .then(function (results) {
+                        // Set the access manually since the access value in createItem appears to be ignored
+                        var options = tslib_1.__assign({ id: results.id, access: access }, requestOptions);
+                        sharing.setItemAccess(options)
                             .then(function (results) {
-                            // Set the access manually since the access value in createItem appears to be ignored
-                            var options = tslib_1.__assign({ id: results.id, access: access }, requestOptions);
-                            sharing.setItemAccess(options)
-                                .then(function (results) {
-                                resolve({
-                                    success: true,
-                                    id: results.itemId
-                                });
+                            resolve({
+                                success: true,
+                                id: results.itemId
                             });
                         });
-                    }
-                });
-            });
-        };
-        /**
-         * Topologically sort a Solution's items into a build list.
-         *
-         * @param items Hash of JSON descriptions of items
-         * @return List of ids of items in the order in which they need to be built so that dependencies
-         * are built before items that require those dependencies
-         * @throws Error("Cyclical dependency graph detected")
-         */
-        Solution.topologicallySortItems = function (items) {
-            // Cormen, Thomas H.; Leiserson, Charles E.; Rivest, Ronald L.; Stein, Clifford (2009)
-            // Sections 22.3 (Depth-first search) & 22.4 (Topological sort), pp. 603-615
-            // Introduction to Algorithms (3rd ed.), The MIT Press, ISBN 978-0-262-03384-8
-            //
-            // DFS(G)
-            // 1 for each vertex u ∈ G,V
-            // 2     u.color = WHITE
-            // 3     u.π = NIL
-            // 4 time = 0
-            // 5 for each vertex u ∈ G,V
-            // 6     if u.color == WHITE
-            // 7         DFS-VISIT(G,u)
-            //
-            // DFS-VISIT(G,u)
-            // 1 time = time + 1    // white vertex u has just been discovered
-            // 2 u.d = time
-            // 3 u.color = GRAY
-            // 4 for each v ∈ G.Adj[u]     // explore edge (u,v)
-            // 5     if v.color == WHITE
-            // 6         v.π = u
-            // 7         DFS-VISIT(G,v)
-            // 8 u.color = BLACK         // blacken u; it is finished
-            // 9 time = time + 1
-            // 10 u.f = time
-            //
-            // TOPOLOGICAL-SORT(G)
-            // 1 call DFS(G) to compute finishing times v.f for each vertex v
-            // 2 as each vertex is finished, insert it onto front of a linked list
-            // 3 return the linked list of vertices
-            var buildList = []; // list of ordered vertices--don't need linked list because we just want relative ordering
-            var verticesToVisit = {};
-            Object.keys(items).forEach(function (vertexId) {
-                verticesToVisit[vertexId] = SortVisitColor.White; // not yet visited
-            });
-            // Algorithm visits each vertex once. Don't need to record times or "from' nodes ("π" in pseudocode)
-            Object.keys(verticesToVisit).forEach(function (vertexId) {
-                if (verticesToVisit[vertexId] === SortVisitColor.White) { // if not yet visited
-                    visit(vertexId);
+                    });
                 }
             });
-            // Visit vertex
-            function visit(vertexId) {
-                verticesToVisit[vertexId] = SortVisitColor.Gray; // visited, in progress
-                // Visit dependents if not already visited
-                var dependencies = items[vertexId].dependencies || [];
-                dependencies.forEach(function (dependencyId) {
-                    dependencyId = dependencyId.substr(0, 32);
-                    if (verticesToVisit[dependencyId] === SortVisitColor.White) { // if not yet visited
-                        visit(dependencyId);
-                    }
-                    else if (verticesToVisit[dependencyId] === SortVisitColor.Gray) { // visited, in progress
-                        throw Error("Cyclical dependency graph detected");
-                    }
+        });
+    }
+    exports.publishSolution = publishSolution;
+    /**
+     * Converts a hash by id of generic JSON item descriptions into AGOL items.
+     *
+     * @param itemJson A hash of item descriptions to convert
+     * @param folderId AGOL id of folder to receive item, or null/empty if folder is to be created; folder name
+     *     is a combination of the solution name and a timestamp for uniqueness, e.g., "Dashboard (1540841846958)"
+     * @returns A promise that will resolve with a list of the ids of items created in AGOL
+     */
+    function cloneSolution(solutionName, solution, folderId, orgSession) {
+        return new Promise(function (resolve, reject) {
+            var itemIdList = [];
+            var swizzles = {};
+            // Run through the list of item ids in clone order
+            var cloneOrderChecklist = topologicallySortItems(solution);
+            function runThroughChecklist() {
+                if (cloneOrderChecklist.length === 0) {
+                    resolve(itemIdList);
+                    return;
+                }
+                // Clone item at top of list
+                var itemId = cloneOrderChecklist.shift();
+                createItem(solution[itemId], folderId, swizzles, orgSession)
+                    .then(function (newItemId) {
+                    itemIdList.push(newItemId);
+                    runThroughChecklist();
+                }, function (error) {
+                    reject(error);
                 });
-                verticesToVisit[vertexId] = SortVisitColor.Black; // finished
-                buildList.push(vertexId); // add to end of list of ordered vertices because we want dependents first
             }
-            return buildList;
-        };
-        /**
-         * Extract item hierarchy structure from a Solution's items list.
-         *
-         * @param items Hash of JSON descriptions of items
-         * @return JSON structure reflecting dependency hierarchy of items; shared dependencies are repeated;
-         * each element of structure contains 1) AGOL type of item, 2) AGOL id of item (groups have a type of 'Group'),
-         * 3) list of dependencies, and, for Feature Services only, 4) the feature layer id in the feature service
-         */
-        Solution.getItemHierarchy = function (items) {
-            var hierarchy = [];
-            // Find the top-level nodes. Start with all nodes, then remove those that other nodes depend on
-            var topLevelNodes = Object.keys(items);
-            Object.keys(items).forEach(function (id) {
-                (items[id].dependencies || []).forEach(function (dependencyId) {
-                    var iNode = topLevelNodes.indexOf(dependencyId.substr(0, 32));
-                    if (iNode >= 0) {
-                        // Node is somebody's dependency, so remove the node from the list of top-level nodes
-                        topLevelNodes.splice(iNode, 1);
-                    }
+            try {
+                // Use specified folder to hold the hydrated items to avoid name clashes
+                if (folderId) {
+                    runThroughChecklist();
+                }
+                else {
+                    // Create a folder to hold the hydrated items to avoid name clashes
+                    var folderName = solutionName + " (" + getTimestamp() + ")";
+                    var options = {
+                        title: folderName,
+                        authentication: orgSession.authentication
+                    };
+                    items.createFolder(options)
+                        .then(function (createdFolderResponse) {
+                        folderId = createdFolderResponse.folder.id;
+                        runThroughChecklist();
+                    });
+                }
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
+    }
+    exports.cloneSolution = cloneSolution;
+    //-- Internals -------------------------------------------------------------------------------------------------------//
+    /**
+     * A general server name to replace the organization URL in a Web Mapping Application's URL to itself;
+     * name has to be acceptable to AGOL, otherwise it discards the URL.
+     * @protected
+     */
+    exports.aPlaceholderServerName = "https://arcgis.com";
+    /**
+     * A visit flag used in the topological sort algorithm.
+     * @protected
+     */
+    var SortVisitColor;
+    (function (SortVisitColor) {
+        /** not yet visited */
+        SortVisitColor[SortVisitColor["White"] = 0] = "White";
+        /** visited, in progress */
+        SortVisitColor[SortVisitColor["Gray"] = 1] = "Gray";
+        /** finished */
+        SortVisitColor[SortVisitColor["Black"] = 2] = "Black";
+    })(SortVisitColor || (SortVisitColor = {}));
+    /**
+     * Adds the layers and tables of a feature service to it and restores their relationships.
+     *
+     * @param fullItem Feature service
+     * @param swizzles Hash mapping Solution source id to id of its clone (and name & URL for feature service)
+     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @returns A promise that will resolve when fullItem has been updated
+     * @protected
+     */
+    function addFeatureServiceLayersAndTables(fullItem, swizzles, orgSession) {
+        return new Promise(function (resolve, reject) {
+            // Sort layers and tables by id so that they're added with the same ids
+            var layersAndTables = [];
+            (fullItem.layers || []).forEach(function (layer) {
+                layersAndTables[layer.id] = {
+                    item: layer,
+                    type: "layer"
+                };
+            });
+            (fullItem.tables || []).forEach(function (table) {
+                layersAndTables[table.id] = {
+                    item: table,
+                    type: "table"
+                };
+            });
+            // Hold a hash of relationships
+            var relationships = {};
+            // Add the service's layers and tables to it
+            updateFeatureServiceDefinition(fullItem.item.id, fullItem.item.url, layersAndTables, swizzles, relationships, orgSession)
+                .then(function () {
+                // Restore relationships for all layers and tables in the service
+                var awaitRelationshipUpdates = [];
+                Object.keys(relationships).forEach(function (id) {
+                    awaitRelationshipUpdates.push(new Promise(function (resolve) {
+                        var options = tslib_1.__assign({ params: {
+                                updateFeatureServiceDefinition: {
+                                    relationships: relationships[id]
+                                }
+                            } }, orgSession);
+                        featureServiceAdmin.addToServiceDefinition(fullItem.item.url + "/" + id, options)
+                            .then(function () {
+                            resolve();
+                        }, resolve);
+                    }));
+                });
+                Promise.all(awaitRelationshipUpdates)
+                    .then(function () {
+                    resolve();
                 });
             });
-            // Hierarchically list the children of specified nodes
-            function itemChildren(children, hierarchy) {
-                children.forEach(function (id) {
-                    var baseId = id.substr(0, 32);
-                    var child = {
-                        id: baseId,
-                        type: items[baseId].type,
-                        dependencies: []
-                    };
-                    // Add  the feature layer id in the service
-                    if (child.type === 'Feature Service') {
-                        child.idPart = id.substr(33);
-                    }
-                    // Fill in the dependencies array with any children
-                    var dependencyIds = items[baseId].dependencies;
-                    if (Array.isArray(dependencyIds) && dependencyIds.length > 0) {
-                        itemChildren(dependencyIds, child.dependencies);
-                    }
-                    hierarchy.push(child);
+        });
+    }
+    /**
+     * Adds the members of a group to it.
+     *
+     * @param fullItem Group
+     * @param swizzles Hash mapping Solution source id to id of its clone
+     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @returns A promise that will resolve when fullItem has been updated
+     * @protected
+     */
+    function addGroupMembers(fullItem, swizzles, orgSession) {
+        return new Promise(function (resolve) {
+            // Add each of the group's items to it
+            if (fullItem.dependencies.length > 0) {
+                var awaitGroupAdds = [];
+                fullItem.dependencies.forEach(function (depId) {
+                    awaitGroupAdds.push(new Promise(function (resolve) {
+                        sharing.shareItemWithGroup(tslib_1.__assign({ id: depId, groupId: fullItem.item.id }, orgSession))
+                            .then(function () {
+                            resolve();
+                        }, function (error) {
+                            console.log("Unable to share group's items with it: " + JSON.stringify(error));
+                        });
+                    }));
                 });
-            }
-            itemChildren(topLevelNodes, hierarchy);
-            return hierarchy;
-        };
-        /**
-         * Extracts the AGOL id from the front of a string.
-         *
-         * @param extendedId A string of hex characters that begins with an AGOL id;
-         *   characters including and after "_" are considered a modifier
-         * @returns An AGOL id
-         */
-        Solution.baseId = function (extendedId) {
-            var iModifierFlag = extendedId.indexOf("_");
-            if (iModifierFlag < 0) {
-                return extendedId;
+                // After all items have been added to the group
+                Promise.all(awaitGroupAdds)
+                    .then(function () { return resolve(); });
             }
             else {
-                return extendedId.substr(0, iModifierFlag);
+                // No items in this group
+                resolve();
             }
-        };
-        return Solution;
-    }());
-    exports.Solution = Solution;
+        });
+    }
+    /**
+     * Creates an item in a specified folder.
+     *
+     * @param fullItem Group
+     * @param folderId Id of folder to receive item; null indicates that the item goes into the root folder
+     * @param swizzles Hash mapping Solution source id to id of its clone
+     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @returns A promise that will resolve with the id of the created item
+     * @protected
+     */
+    function createItem(fullItem, folderId, swizzles, orgSession) {
+        return new Promise(function (resolve, reject) {
+            // Swizzle item's dependencies
+            dependencies_1.swizzleDependencies(fullItem, swizzles);
+            // Feature Services
+            if (fullItem.type === "Feature Service") {
+                var options = tslib_1.__assign({ item: fullItem.item, folderId: folderId }, orgSession);
+                if (fullItem.data) {
+                    options.item.text = fullItem.data;
+                }
+                // Make the item name unique
+                options.item.name += "_" + getTimestamp();
+                // Remove the layers and tables from the create request because while they aren't added when
+                // the service is added, their presence prevents them from being added later via updateFeatureServiceDefinition
+                options.item.layers = [];
+                options.item.tables = [];
+                // Create the item
+                featureServiceAdmin.createFeatureService(options)
+                    .then(function (createResponse) {
+                    // Add the new item to the swizzle list
+                    swizzles[fullItem.item.id] = {
+                        id: createResponse.serviceItemId,
+                        url: createResponse.serviceurl
+                    };
+                    fullItem.item.id = createResponse.serviceItemId;
+                    fullItem.item.url = createResponse.serviceurl;
+                    // Add the feature service's layers and tables to it
+                    addFeatureServiceLayersAndTables(fullItem, swizzles, orgSession)
+                        .then(function () { return resolve(fullItem.item.id); });
+                }, function (error) {
+                    reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
+                });
+                // Groups
+            }
+            else if (fullItem.type === "Group") {
+                var options = tslib_1.__assign({ group: fullItem.item }, orgSession);
+                // Make the item title unique
+                options.group.title += "_" + getTimestamp();
+                // Create the item
+                groups.createGroup(options)
+                    .then(function (createResponse) {
+                    // Add the new item to the swizzle list
+                    swizzles[fullItem.item.id] = {
+                        id: createResponse.group.id
+                    };
+                    fullItem.item.id = createResponse.group.id;
+                    // Add the group's items to it
+                    addGroupMembers(fullItem, swizzles, orgSession)
+                        .then(function () { return resolve(fullItem.item.id); });
+                }, function (error) {
+                    reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
+                });
+                // All other types
+            }
+            else {
+                var options = tslib_1.__assign({ item: fullItem.item, folder: folderId }, orgSession);
+                if (fullItem.data) {
+                    options.item.text = fullItem.data;
+                }
+                // Create the item
+                items.createItemInFolder(options)
+                    .then(function (createResponse) {
+                    // Add the new item to the swizzle list
+                    swizzles[fullItem.item.id] = {
+                        id: createResponse.id
+                    };
+                    fullItem.item.id = createResponse.id;
+                    // For a web mapping app, update its app URL
+                    if (fullItem.type === "Web Mapping Application") {
+                        updateWebMappingApplicationURL(fullItem, orgSession)
+                            .then(function () { return resolve(fullItem.item.id); }, function (error) {
+                            reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
+                        });
+                    }
+                    else {
+                        resolve(fullItem.item.id);
+                    }
+                }, function (error) {
+                    reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
+                });
+            }
+        });
+    }
+    /**
+     * Fills in missing data, including full layer and table definitions, in a feature services' definition.
+     *
+     * @param fullItem Feature service item, data, dependencies definition to be modified
+     * @param requestOptions Options for requesting information from AGOL
+     * @returns A promise that will resolve when fullItem has been updated
+     * @protected
+     */
+    function fleshOutFeatureService(fullItem, requestOptions) {
+        return new Promise(function (resolve) {
+            fullItem.service = {};
+            fullItem.layers = [];
+            fullItem.tables = [];
+            // To have enough information for reconstructing the service, we'll supplement
+            // the item and data sections with sections for the service, full layers, and
+            // full tables
+            // Get the service description
+            var serviceUrl = fullItem.item.url;
+            arcgis_rest_request_1.request(serviceUrl + "?f=json", requestOptions)
+                .then(function (serviceData) {
+                // Fill in some missing parts
+                // If the service doesn't have a name, try to get a name from its layers or tables
+                serviceData["snippet"] = fullItem.item["snippet"];
+                serviceData["description"] = fullItem.item["description"];
+                serviceData["name"] = fullItem.item["name"] ||
+                    getFirstUsableName(serviceData["layers"]) ||
+                    getFirstUsableName(serviceData["tables"]) ||
+                    "Feature Service";
+                fullItem.service = serviceData;
+                // Get the affiliated layer and table items
+                Promise.all([
+                    getLayers(serviceUrl, serviceData["layers"], requestOptions),
+                    getLayers(serviceUrl, serviceData["tables"], requestOptions)
+                ])
+                    .then(function (results) {
+                    fullItem.layers = results[0];
+                    fullItem.tables = results[1];
+                    resolve();
+                });
+            });
+        });
+    }
+    /**
+     * Simplifies a web mapping application's app URL for cloning.
+     *
+     * @param fullItem Web mapping application definition to be modified
+     * @protected
+     */
+    function generalizeWebMappingApplicationURLs(fullItem) {
+        // Remove org base URL and app id
+        // Need to add placeholder server name because otherwise AGOL makes URL null
+        var orgUrl = fullItem.item.url.replace(fullItem.item.id, "");
+        var iSep = orgUrl.indexOf("//");
+        fullItem.item.url = exports.aPlaceholderServerName + // add placeholder server name
+            orgUrl.substr(orgUrl.indexOf("/", iSep + 2));
+    }
+    /**
+     * Gets the name of the first layer in list of layers that has a name
+     * @param layerList List of layers to use as a name source
+     * @returns The name of the found layer or an empty string if no layers have a name
+     * @protected
+     */
+    function getFirstUsableName(layerList) {
+        // Return the first layer name found
+        if (layerList !== null) {
+            layerList.forEach(function (layer) {
+                if (layer["name"] !== "") {
+                    return layer["name"];
+                }
+            });
+        }
+        return "";
+    }
+    /**
+     * Gets the full definitions of the layers affiliated with a hosted service.
+     *
+     * @param serviceUrl URL to hosted service
+     * @param layerList List of layers at that service
+     * @param requestOptions Options for the request
+     * @returns A promise that will resolve with a list of the enhanced layers
+     * @protected
+     */
+    function getLayers(serviceUrl, layerList, requestOptions) {
+        return new Promise(function (resolve) {
+            if (!Array.isArray(layerList)) {
+                resolve([]);
+            }
+            var requestsDfd = [];
+            layerList.forEach(function (layer) {
+                requestsDfd.push(arcgis_rest_request_1.request(serviceUrl + "/" + layer["id"] + "?f=json", requestOptions));
+            });
+            // Wait until all layers are heard from
+            Promise.all(requestsDfd)
+                .then(function (layers) {
+                // Remove the editFieldsInfo because it references fields that may not be in the layer/table
+                layers.forEach(function (layer) {
+                    layer["editFieldsInfo"] = null;
+                });
+                resolve(layers);
+            });
+        });
+    }
+    /**
+     * Creates a timestamp string using the current date and time.
+     *
+     * @returns Timestamp
+     * @protected
+     */
+    function getTimestamp() {
+        return (new Date()).getTime().toString();
+    }
+    exports.getTimestamp = getTimestamp;
+    /**
+     * Creates a copy of item base properties with properties irrelevant to cloning removed.
+     *
+     * @param item The base section of an item
+     * @returns Cloned copy of item without certain properties such as `created`, `modified`,
+     *        `owner`,...; note that is is a shallow copy
+     * @protected
+     */
+    function removeUndesirableItemProperties(item) {
+        if (item) {
+            var itemSectionClone = tslib_1.__assign({}, item);
+            delete itemSectionClone.avgRating;
+            delete itemSectionClone.created;
+            delete itemSectionClone.guid;
+            delete itemSectionClone.lastModified;
+            delete itemSectionClone.modified;
+            delete itemSectionClone.numComments;
+            delete itemSectionClone.numRatings;
+            delete itemSectionClone.numViews;
+            delete itemSectionClone.orgId;
+            delete itemSectionClone.owner;
+            delete itemSectionClone.scoreCompleteness;
+            delete itemSectionClone.size;
+            delete itemSectionClone.uploaded;
+            return itemSectionClone;
+        }
+        return null;
+    }
+    exports.removeUndesirableItemProperties = removeUndesirableItemProperties;
+    /**
+     * Topologically sort a Solution's items into a build list.
+     *
+     * @param items Hash of JSON descriptions of items
+     * @returns List of ids of items in the order in which they need to be built so that dependencies
+     * are built before items that require those dependencies
+     * @throws Error("Cyclical dependency graph detected")
+     * @protected
+     * @protected
+     */
+    function topologicallySortItems(items) {
+        // Cormen, Thomas H.; Leiserson, Charles E.; Rivest, Ronald L.; Stein, Clifford (2009)
+        // Sections 22.3 (Depth-first search) & 22.4 (Topological sort), pp. 603-615
+        // Introduction to Algorithms (3rd ed.), The MIT Press, ISBN 978-0-262-03384-8
+        //
+        // DFS(G)
+        // 1 for each vertex u ∈ G,V
+        // 2     u.color = WHITE
+        // 3     u.π = NIL
+        // 4 time = 0
+        // 5 for each vertex u ∈ G,V
+        // 6     if u.color == WHITE
+        // 7         DFS-VISIT(G,u)
+        //
+        // DFS-VISIT(G,u)
+        // 1 time = time + 1    // white vertex u has just been discovered
+        // 2 u.d = time
+        // 3 u.color = GRAY
+        // 4 for each v ∈ G.Adj[u]     // explore edge (u,v)
+        // 5     if v.color == WHITE
+        // 6         v.π = u
+        // 7         DFS-VISIT(G,v)
+        // 8 u.color = BLACK         // blacken u; it is finished
+        // 9 time = time + 1
+        // 10 u.f = time
+        //
+        // TOPOLOGICAL-SORT(G)
+        // 1 call DFS(G) to compute finishing times v.f for each vertex v
+        // 2 as each vertex is finished, insert it onto front of a linked list
+        // 3 return the linked list of vertices
+        var buildList = []; // list of ordered vertices--don't need linked list because we just want relative ordering
+        var verticesToVisit = {};
+        Object.keys(items).forEach(function (vertexId) {
+            verticesToVisit[vertexId] = SortVisitColor.White; // not yet visited
+        });
+        // Algorithm visits each vertex once. Don't need to record times or "from' nodes ("π" in pseudocode)
+        Object.keys(verticesToVisit).forEach(function (vertexId) {
+            if (verticesToVisit[vertexId] === SortVisitColor.White) { // if not yet visited
+                visit(vertexId);
+            }
+        });
+        // Visit vertex
+        function visit(vertexId) {
+            verticesToVisit[vertexId] = SortVisitColor.Gray; // visited, in progress
+            // Visit dependents if not already visited
+            var dependencies = items[vertexId].dependencies || [];
+            dependencies.forEach(function (dependencyId) {
+                if (verticesToVisit[dependencyId] === SortVisitColor.White) { // if not yet visited
+                    visit(dependencyId);
+                }
+                else if (verticesToVisit[dependencyId] === SortVisitColor.Gray) { // visited, in progress
+                    throw Error("Cyclical dependency graph detected");
+                }
+            });
+            verticesToVisit[vertexId] = SortVisitColor.Black; // finished
+            buildList.push(vertexId); // add to end of list of ordered vertices because we want dependents first
+        }
+        return buildList;
+    }
+    exports.topologicallySortItems = topologicallySortItems;
+    /**
+     * Updates a feature service with a list of layers and/or tables.
+     *
+     * @param serviceItemId AGOL id of feature service
+     * @param serviceUrl URL of feature service
+     * @param listToAdd List of layers and/or tables to add
+     * @param swizzles Hash mapping Solution source id to id of its clone (and name & URL for feature service)
+     * @param relationships Hash mapping a layer's relationship id to the ids of its relationships
+     * @param requestOptions Options for requesting information from AGOL
+     * @returns A promise that will resolve when the feature service has been updated
+     * @protected
+     */
+    function updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, swizzles, relationships, requestOptions) {
+        // Launch the adds serially because server doesn't support parallel adds
+        return new Promise(function (resolve) {
+            if (listToAdd.length > 0) {
+                var toAdd = listToAdd.shift();
+                var item = toAdd.item;
+                var originalId = item.id;
+                delete item.serviceItemId; // Updated by updateFeatureServiceDefinition
+                // Need to remove relationships and add them back individually after all layers and tables
+                // have been added to the definition
+                if (Array.isArray(item.relationships) && item.relationships.length > 0) {
+                    relationships[originalId] = item.relationships;
+                    item.relationships = [];
+                }
+                var options = tslib_1.__assign({}, requestOptions);
+                if (toAdd.type === "layer") {
+                    item.adminLayerInfo = {
+                        "geometryField": {
+                            "name": "Shape",
+                            "srid": 102100
+                        }
+                    };
+                    options.layers = [item];
+                }
+                else {
+                    options.tables = [item];
+                }
+                featureServiceAdmin.addToServiceDefinition(serviceUrl, options)
+                    .then(function () {
+                    updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, swizzles, relationships, requestOptions)
+                        .then(resolve);
+                }, function () {
+                    updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, swizzles, relationships, requestOptions)
+                        .then(resolve);
+                });
+            }
+            else {
+                resolve();
+            }
+        });
+    }
+    /**
+     * Updates the URL of a web mapping application to one usable for running the app.
+     *
+     * @param fullItem A web mapping application
+     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @returns A promise that will resolve when fullItem has been updated
+     * @protected
+     */
+    function updateWebMappingApplicationURL(fullItem, orgSession) {
+        return new Promise(function (resolve, reject) {
+            // Update its URL
+            var options = {
+                item: {
+                    'id': fullItem.item.id,
+                    'url': orgSession.orgUrl +
+                        (fullItem.item.url.substr(exports.aPlaceholderServerName.length)) + // remove placeholder server name
+                        fullItem.item.id
+                },
+                authentication: orgSession.authentication
+            };
+            try {
+                items.updateItem(options)
+                    .then(function (updateResp) {
+                    resolve(fullItem.item.id);
+                }, function (error) {
+                    reject('Unable to update web mapping app: ' + fullItem.item.id);
+                });
+            }
+            catch (ignore) {
+                reject('Unable to update web mapping app: ' + fullItem.item.id);
+            }
+        });
+    }
+    exports.updateWebMappingApplicationURL = updateWebMappingApplicationURL;
 });
 //# sourceMappingURL=solution.js.map

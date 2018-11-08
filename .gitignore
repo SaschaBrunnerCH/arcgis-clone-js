@@ -13,5 +13,6 @@ __*
 *.7z
 
 # Built files
+/coverage
 .zip
 

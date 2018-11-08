@@ -19,18 +19,25 @@
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "fetch-mock", "./customMatchers", "../src/solution", "../src/agolItem", "@esri/arcgis-rest-auth", "./lib/utils"], factory);
+        define(["require", "exports", "tslib", "fetch-mock", "./customMatchers", "../src/solution", "@esri/arcgis-rest-auth", "./lib/utils", "./mocks/fullItemQueries"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
+    var tslib_1 = require("tslib");
     var fetchMock = require("fetch-mock");
     var customMatchers_1 = require("./customMatchers");
-    var solution_1 = require("../src/solution");
-    var agolItem_1 = require("../src/agolItem");
+    var solution = require("../src/solution");
     var arcgis_rest_auth_1 = require("@esri/arcgis-rest-auth");
     var utils_1 = require("./lib/utils");
-    describe("supporting Solution item", function () {
+    var fullItemQueries_1 = require("./mocks/fullItemQueries");
+    //--------------------------------------------------------------------------------------------------------------------//
+    describe("Module `solution`: generation, publication, and cloning of a solution item", function () {
+        var MOCK_ITEM_PROTOTYPE = {
+            type: "",
+            item: null
+        };
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = 20000; // default is 5000 ms
         // Set up a UserSession to use in all these tests
         var MOCK_USER_SESSION = new arcgis_rest_auth_1.UserSession({
             clientId: "clientId",
@@ -44,88 +51,144 @@
             password: "123456",
             portal: "https://myorg.maps.arcgis.com/sharing/rest"
         });
-        var MOCK_USER_REQOPTS = {
-            authentication: MOCK_USER_SESSION
-        };
         beforeEach(function () {
             jasmine.addMatchers(customMatchers_1.CustomMatchers);
         });
         afterEach(function () {
             fetchMock.restore();
         });
-        it("sorts an item and its dependencies 1", function () {
-            var abc = new agolItem_1.AgolItem({});
-            var def = new agolItem_1.AgolItem({});
-            var ghi = new agolItem_1.AgolItem({});
-            abc.dependencies = ["ghi", "def"];
-            var results = solution_1.Solution.topologicallySortItems({
-                "abc": abc,
-                "def": def,
-                "ghi": ghi,
-            });
-            expect(results.length).toEqual(3);
-            expect(results).toHaveOrder({ predecessor: "ghi", successor: "abc" });
-            expect(results).toHaveOrder({ predecessor: "def", successor: "abc" });
-        });
-        it("sorts an item and its dependencies 2", function () {
-            var abc = new agolItem_1.AgolItem({});
-            var def = new agolItem_1.AgolItem({});
-            var ghi = new agolItem_1.AgolItem({});
-            abc.dependencies = ["ghi", "def"];
-            def.dependencies = ["ghi"];
-            var results = solution_1.Solution.topologicallySortItems({
-                "abc": abc,
-                "def": def,
-                "ghi": ghi,
-            });
-            expect(results.length).toEqual(3);
-            expect(results).toHaveOrder({ predecessor: "ghi", successor: "abc" });
-            expect(results).toHaveOrder({ predecessor: "def", successor: "abc" });
-            expect(results).toHaveOrder({ predecessor: "ghi", successor: "def" });
-        });
-        it("sorts an item and its dependencies 3", function () {
-            var abc = new agolItem_1.AgolItem({});
-            var def = new agolItem_1.AgolItem({});
-            var ghi = new agolItem_1.AgolItem({});
-            abc.dependencies = ["ghi"];
-            ghi.dependencies = ["def"];
-            var results = solution_1.Solution.topologicallySortItems({
-                "abc": abc,
-                "def": def,
-                "ghi": ghi,
-            });
-            expect(results.length).toEqual(3);
-            expect(results).toHaveOrder({ predecessor: "ghi", successor: "abc" });
-            expect(results).toHaveOrder({ predecessor: "def", successor: "abc" });
-            expect(results).toHaveOrder({ predecessor: "def", successor: "ghi" });
-        });
-        it("reports a multi-item cyclic dependency graph", function () {
-            var abc = new agolItem_1.AgolItem({});
-            var def = new agolItem_1.AgolItem({});
-            var ghi = new agolItem_1.AgolItem({});
-            abc.dependencies = ["ghi"];
-            def.dependencies = ["ghi"];
-            ghi.dependencies = ["abc"];
-            expect(function () {
-                var results = solution_1.Solution.topologicallySortItems({
+        describe("supporting routine: get cloning order", function () {
+            it("sorts an item and its dependencies 1", function () {
+                var abc = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var def = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var ghi = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                abc.dependencies = ["ghi", "def"];
+                var results = solution.topologicallySortItems({
                     "abc": abc,
                     "def": def,
                     "ghi": ghi,
                 });
-            }).toThrowError(Error, "Cyclical dependency graph detected");
-        });
-        it("reports a single-item cyclic dependency graph", function () {
-            var abc = new agolItem_1.AgolItem({});
-            var def = new agolItem_1.AgolItem({});
-            var ghi = new agolItem_1.AgolItem({});
-            def.dependencies = ["def"];
-            expect(function () {
-                var results = solution_1.Solution.topologicallySortItems({
+                expect(results.length).toEqual(3);
+                expect(results).toHaveOrder({ predecessor: "ghi", successor: "abc" });
+                expect(results).toHaveOrder({ predecessor: "def", successor: "abc" });
+            });
+            it("sorts an item and its dependencies 2", function () {
+                var abc = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var def = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var ghi = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                abc.dependencies = ["ghi", "def"];
+                def.dependencies = ["ghi"];
+                var results = solution.topologicallySortItems({
                     "abc": abc,
                     "def": def,
                     "ghi": ghi,
                 });
-            }).toThrowError(Error, "Cyclical dependency graph detected");
+                expect(results.length).toEqual(3);
+                expect(results).toHaveOrder({ predecessor: "ghi", successor: "abc" });
+                expect(results).toHaveOrder({ predecessor: "def", successor: "abc" });
+                expect(results).toHaveOrder({ predecessor: "ghi", successor: "def" });
+            });
+            it("sorts an item and its dependencies 3", function () {
+                var abc = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var def = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var ghi = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                abc.dependencies = ["ghi"];
+                ghi.dependencies = ["def"];
+                var results = solution.topologicallySortItems({
+                    "abc": abc,
+                    "def": def,
+                    "ghi": ghi,
+                });
+                expect(results.length).toEqual(3);
+                expect(results).toHaveOrder({ predecessor: "ghi", successor: "abc" });
+                expect(results).toHaveOrder({ predecessor: "def", successor: "abc" });
+                expect(results).toHaveOrder({ predecessor: "def", successor: "ghi" });
+            });
+            it("reports a multi-item cyclic dependency graph", function () {
+                var abc = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var def = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var ghi = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                abc.dependencies = ["ghi"];
+                def.dependencies = ["ghi"];
+                ghi.dependencies = ["abc"];
+                expect(function () {
+                    var results = solution.topologicallySortItems({
+                        "abc": abc,
+                        "def": def,
+                        "ghi": ghi,
+                    });
+                }).toThrowError(Error, "Cyclical dependency graph detected");
+            });
+            it("reports a single-item cyclic dependency graph", function () {
+                var abc = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var def = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                var ghi = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+                def.dependencies = ["def"];
+                expect(function () {
+                    var results = solution.topologicallySortItems({
+                        "abc": abc,
+                        "def": def,
+                        "ghi": ghi,
+                    });
+                }).toThrowError(Error, "Cyclical dependency graph detected");
+            });
+        });
+        describe("supporting routine: remove undesirable properties", function () {
+            it("remove properties", function () {
+                var abc = tslib_1.__assign({}, fullItemQueries_1.ItemSuccessResponseWMA);
+                var abcCopy = solution.removeUndesirableItemProperties(abc);
+                expect(abc).toEqual(fullItemQueries_1.ItemSuccessResponseWMA);
+                expect(abcCopy).toEqual(fullItemQueries_1.ItemSuccessResponseWMAWithoutUndesirableProps);
+            });
+            it("shallow copy if properties already removed", function () {
+                var abc = tslib_1.__assign({}, fullItemQueries_1.ItemSuccessResponseWMAWithoutUndesirableProps);
+                var abcCopy = solution.removeUndesirableItemProperties(abc);
+                expect(abc).toEqual(fullItemQueries_1.ItemSuccessResponseWMAWithoutUndesirableProps);
+                expect(abcCopy).toEqual(fullItemQueries_1.ItemSuccessResponseWMAWithoutUndesirableProps);
+                abcCopy.id = "WMA123";
+                expect(abc.id).toEqual("wma1234567890");
+            });
+            it("checks for item before attempting to access its properties", function () {
+                var result = solution.removeUndesirableItemProperties(null);
+                expect(result).toBeNull();
+            });
+        });
+        describe("supporting routine: timestamp", function () {
+            it("should return time 1541440408000", function () {
+                var expected = 1541440408000;
+                jasmine.clock().install();
+                jasmine.clock().mockDate(new Date(expected));
+                expect(solution.getTimestamp()).toEqual(expected.toString());
+                jasmine.clock().uninstall();
+            });
+        });
+        describe("supporting routine: update WMA URL", function () {
+            var orgSession = {
+                orgUrl: "https://myOrg.maps.arcgis.com",
+                portalUrl: "https://www.arcgis.com",
+                authentication: MOCK_USER_SESSION
+            };
+            var abc = tslib_1.__assign({}, MOCK_ITEM_PROTOTYPE);
+            abc.item = tslib_1.__assign({}, fullItemQueries_1.ItemSuccessResponseWMA);
+            abc.item.url = solution.aPlaceholderServerName + "/apps/CrowdsourcePolling/index.html?appid=";
+            it("success", function (done) {
+                fetchMock
+                    .post("https://myorg.maps.arcgis.com/sharing/rest/content/users/casey/items/wma1234567890/update", '{"success":true,"id":"wma1234567890"}');
+                solution.updateWebMappingApplicationURL(abc, orgSession)
+                    .then(function (response) {
+                    expect(response).toEqual("wma1234567890");
+                    done();
+                });
+            });
+            it("failure", function (done) {
+                fetchMock
+                    .post("https://myorg.maps.arcgis.com/sharing/rest/content/users/casey/items/wma1234567890/update", "Unable to update web mapping app: wma1234567890");
+                solution.updateWebMappingApplicationURL(abc, orgSession)
+                    .then(fail, function (error) {
+                    expect(error).toEqual("Unable to update web mapping app: wma1234567890");
+                    done();
+                });
+            });
         });
     });
 });
