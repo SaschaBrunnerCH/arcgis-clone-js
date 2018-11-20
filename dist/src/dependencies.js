@@ -160,7 +160,7 @@
     function swizzleDashboardDependencies(fullItem, swizzles) {
         // Swizzle its webmap(s)
         var widgets = fullItem.data && fullItem.data.widgets;
-        if (widgets) {
+        if (Array.isArray(widgets)) {
             widgets.forEach(function (widget) {
                 if (widget.type === "mapWidget") {
                     widget.itemId = swizzles[widget.itemId].id;

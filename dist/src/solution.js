@@ -106,7 +106,7 @@
      * @returns A promise that will resolve with an object reporting success and the Solution id
      */
     function publishSolution(title, solution, access, requestOptions) {
-        return new Promise(function (resolve) {
+        return new Promise(function (resolve, reject) {
             // Define the solution item
             var item = {
                 title: title,
@@ -123,37 +123,42 @@
             var options = tslib_1.__assign({ title: title, item: item }, requestOptions);
             items.createItem(options)
                 .then(function (results) {
-                if (results.success) {
-                    var options_1 = tslib_1.__assign({ id: results.id, data: data }, requestOptions);
-                    items.addItemJsonData(options_1)
+                var options = tslib_1.__assign({ id: results.id, data: data }, requestOptions);
+                items.addItemJsonData(options)
+                    .then(function (results) {
+                    // Set the access manually since the access value in createItem appears to be ignored
+                    var options = tslib_1.__assign({ id: results.id, access: access }, requestOptions);
+                    sharing.setItemAccess(options)
                         .then(function (results) {
-                        // Set the access manually since the access value in createItem appears to be ignored
-                        var options = tslib_1.__assign({ id: results.id, access: access }, requestOptions);
-                        sharing.setItemAccess(options)
-                            .then(function (results) {
-                            resolve({
-                                success: true,
-                                id: results.itemId
-                            });
+                        resolve({
+                            success: true,
+                            id: results.itemId
                         });
-                    });
-                }
-            });
+                    }, function (error) { return reject(error.originalMessage); });
+                }, function (error) { return reject(error.originalMessage); });
+            }, function (error) { return reject(error.originalMessage); });
         });
     }
     exports.publishSolution = publishSolution;
     /**
      * Converts a hash by id of generic JSON item descriptions into AGOL items.
      *
-     * @param itemJson A hash of item descriptions to convert
-     * @param folderId AGOL id of folder to receive item, or null/empty if folder is to be created; folder name
-     *     is a combination of the solution name and a timestamp for uniqueness, e.g., "Dashboard (1540841846958)"
+     * @param solution A hash of item descriptions to convert
+     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @param folderId AGOL id of folder to receive item, or null/empty if folder is to be created;
+     *     if created, folder name is a combination of the solution name and a timestamp for uniqueness,
+     *     e.g., "Dashboard (1540841846958)"
+     * @param solutionName Name root to use if folder is to be created
      * @returns A promise that will resolve with a list of the ids of items created in AGOL
      */
-    function cloneSolution(solutionName, solution, folderId, orgSession) {
+    function cloneSolution(solution, orgSession, folderId, solutionName) {
         return new Promise(function (resolve, reject) {
             var itemIdList = [];
             var swizzles = {};
+            // Don't bother creating folder if there are no items in solution
+            if (!solution || Object.keys(solution).length === 0) {
+                resolve(itemIdList);
+            }
             // Run through the list of item ids in clone order
             var cloneOrderChecklist = topologicallySortItems(solution);
             function runThroughChecklist() {
@@ -171,27 +176,24 @@
                     reject(error);
                 });
             }
-            try {
-                // Use specified folder to hold the hydrated items to avoid name clashes
-                if (folderId) {
-                    runThroughChecklist();
-                }
-                else {
-                    // Create a folder to hold the hydrated items to avoid name clashes
-                    var folderName = solutionName + " (" + getTimestamp() + ")";
-                    var options = {
-                        title: folderName,
-                        authentication: orgSession.authentication
-                    };
-                    items.createFolder(options)
-                        .then(function (createdFolderResponse) {
-                        folderId = createdFolderResponse.folder.id;
-                        runThroughChecklist();
-                    });
-                }
+            // Use specified folder to hold the hydrated items to avoid name clashes
+            if (folderId) {
+                runThroughChecklist();
             }
-            catch (error) {
-                reject(error);
+            else {
+                // Create a folder to hold the hydrated items to avoid name clashes
+                var folderName = (solutionName || "Solution") + " (" + getTimestamp() + ")";
+                var options = {
+                    title: folderName,
+                    authentication: orgSession.authentication
+                };
+                items.createFolder(options)
+                    .then(function (createdFolderResponse) {
+                    folderId = createdFolderResponse.folder.id;
+                    runThroughChecklist();
+                }, function (error) {
+                    reject(error.response.error.message);
+                });
             }
         });
     }
@@ -244,30 +246,36 @@
             // Hold a hash of relationships
             var relationships = {};
             // Add the service's layers and tables to it
-            updateFeatureServiceDefinition(fullItem.item.id, fullItem.item.url, layersAndTables, swizzles, relationships, orgSession)
-                .then(function () {
-                // Restore relationships for all layers and tables in the service
-                var awaitRelationshipUpdates = [];
-                Object.keys(relationships).forEach(function (id) {
-                    awaitRelationshipUpdates.push(new Promise(function (resolve) {
-                        var options = tslib_1.__assign({ params: {
-                                updateFeatureServiceDefinition: {
-                                    relationships: relationships[id]
-                                }
-                            } }, orgSession);
-                        featureServiceAdmin.addToServiceDefinition(fullItem.item.url + "/" + id, options)
-                            .then(function () {
-                            resolve();
-                        }, resolve);
-                    }));
-                });
-                Promise.all(awaitRelationshipUpdates)
+            if (layersAndTables.length > 0) {
+                updateFeatureServiceDefinition(fullItem.item.id, fullItem.item.url, layersAndTables, swizzles, relationships, orgSession)
                     .then(function () {
-                    resolve();
+                    // Restore relationships for all layers and tables in the service
+                    var awaitRelationshipUpdates = [];
+                    Object.keys(relationships).forEach(function (id) {
+                        awaitRelationshipUpdates.push(new Promise(function (resolve) {
+                            var options = tslib_1.__assign({ params: {
+                                    updateFeatureServiceDefinition: {
+                                        relationships: relationships[id]
+                                    }
+                                } }, orgSession);
+                            featureServiceAdmin.addToServiceDefinition(fullItem.item.url + "/" + id, options)
+                                .then(function () {
+                                resolve();
+                            }, resolve);
+                        }));
+                    });
+                    Promise.all(awaitRelationshipUpdates)
+                        .then(function () {
+                        resolve();
+                    });
                 });
-            });
+            }
+            else {
+                resolve();
+            }
         });
     }
+    exports.addFeatureServiceLayersAndTables = addFeatureServiceLayersAndTables;
     /**
      * Adds the members of a group to it.
      *
@@ -278,7 +286,7 @@
      * @protected
      */
     function addGroupMembers(fullItem, swizzles, orgSession) {
-        return new Promise(function (resolve) {
+        return new Promise(function (resolve, reject) {
             // Add each of the group's items to it
             if (fullItem.dependencies.length > 0) {
                 var awaitGroupAdds = [];
@@ -287,9 +295,7 @@
                         sharing.shareItemWithGroup(tslib_1.__assign({ id: depId, groupId: fullItem.item.id }, orgSession))
                             .then(function () {
                             resolve();
-                        }, function (error) {
-                            console.log("Unable to share group's items with it: " + JSON.stringify(error));
-                        });
+                        }, function (error) { return reject(error.response.error.message); });
                     }));
                 });
                 // After all items have been added to the group
@@ -302,11 +308,13 @@
             }
         });
     }
+    exports.addGroupMembers = addGroupMembers;
     /**
-     * Creates an item in a specified folder.
+     * Creates an item in a specified folder (except for Group item type).
      *
-     * @param fullItem Group
-     * @param folderId Id of folder to receive item; null indicates that the item goes into the root folder
+     * @param fullItem Item to be created; n.b.: this item is modified
+     * @param folderId Id of folder to receive item; null indicates that the item goes into the root
+     *                 folder; ignored for Group item type
      * @param swizzles Hash mapping Solution source id to id of its clone
      * @param orgSession Options for requesting information from AGOL, including org and portal URLs
      * @returns A promise that will resolve with the id of the created item
@@ -341,9 +349,7 @@
                     // Add the feature service's layers and tables to it
                     addFeatureServiceLayersAndTables(fullItem, swizzles, orgSession)
                         .then(function () { return resolve(fullItem.item.id); });
-                }, function (error) {
-                    reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
-                });
+                }, reject);
                 // Groups
             }
             else if (fullItem.type === "Group") {
@@ -361,9 +367,7 @@
                     // Add the group's items to it
                     addGroupMembers(fullItem, swizzles, orgSession)
                         .then(function () { return resolve(fullItem.item.id); });
-                }, function (error) {
-                    reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
-                });
+                }, function (error) { return reject(error.response.error.message); });
                 // All other types
             }
             else {
@@ -382,19 +386,16 @@
                     // For a web mapping app, update its app URL
                     if (fullItem.type === "Web Mapping Application") {
                         updateWebMappingApplicationURL(fullItem, orgSession)
-                            .then(function () { return resolve(fullItem.item.id); }, function (error) {
-                            reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
-                        });
+                            .then(function () { return resolve(fullItem.item.id); }, function (error) { return reject(error.response.error.message); });
                     }
                     else {
                         resolve(fullItem.item.id);
                     }
-                }, function (error) {
-                    reject("Unable to create " + fullItem.type + ": " + JSON.stringify(error));
-                });
+                }, function (error) { return reject(error.response.error.message); });
             }
         });
     }
+    exports.createItem = createItem;
     /**
      * Fills in missing data, including full layer and table definitions, in a feature services' definition.
      *
@@ -417,12 +418,12 @@
                 .then(function (serviceData) {
                 // Fill in some missing parts
                 // If the service doesn't have a name, try to get a name from its layers or tables
-                serviceData["snippet"] = fullItem.item["snippet"];
-                serviceData["description"] = fullItem.item["description"];
                 serviceData["name"] = fullItem.item["name"] ||
                     getFirstUsableName(serviceData["layers"]) ||
                     getFirstUsableName(serviceData["tables"]) ||
                     "Feature Service";
+                serviceData["snippet"] = fullItem.item["snippet"];
+                serviceData["description"] = fullItem.item["description"];
                 fullItem.service = serviceData;
                 // Get the affiliated layer and table items
                 Promise.all([
@@ -437,6 +438,7 @@
             });
         });
     }
+    exports.fleshOutFeatureService = fleshOutFeatureService;
     /**
      * Simplifies a web mapping application's app URL for cloning.
      *
@@ -458,15 +460,18 @@
      * @protected
      */
     function getFirstUsableName(layerList) {
+        var name = "";
         // Return the first layer name found
-        if (layerList !== null) {
-            layerList.forEach(function (layer) {
+        if (Array.isArray(layerList) && layerList.length > 0) {
+            layerList.some(function (layer) {
                 if (layer["name"] !== "") {
-                    return layer["name"];
+                    name = layer["name"];
+                    return true;
                 }
+                return false;
             });
         }
-        return "";
+        return name;
     }
     /**
      * Gets the full definitions of the layers affiliated with a hosted service.
@@ -479,7 +484,7 @@
      */
     function getLayers(serviceUrl, layerList, requestOptions) {
         return new Promise(function (resolve) {
-            if (!Array.isArray(layerList)) {
+            if (!Array.isArray(layerList) || layerList.length === 0) {
                 resolve([]);
             }
             var requestsDfd = [];
@@ -620,7 +625,7 @@
      */
     function updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, swizzles, relationships, requestOptions) {
         // Launch the adds serially because server doesn't support parallel adds
-        return new Promise(function (resolve) {
+        return new Promise(function (resolve, reject) {
             if (listToAdd.length > 0) {
                 var toAdd = listToAdd.shift();
                 var item = toAdd.item;
@@ -649,10 +654,7 @@
                     .then(function () {
                     updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, swizzles, relationships, requestOptions)
                         .then(resolve);
-                }, function () {
-                    updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, swizzles, relationships, requestOptions)
-                        .then(resolve);
-                });
+                }, reject);
             }
             else {
                 resolve();
@@ -679,17 +681,10 @@
                 },
                 authentication: orgSession.authentication
             };
-            try {
-                items.updateItem(options)
-                    .then(function (updateResp) {
-                    resolve(fullItem.item.id);
-                }, function (error) {
-                    reject('Unable to update web mapping app: ' + fullItem.item.id);
-                });
-            }
-            catch (ignore) {
-                reject('Unable to update web mapping app: ' + fullItem.item.id);
-            }
+            items.updateItem(options)
+                .then(function (updateResp) {
+                resolve(fullItem.item.id);
+            }, reject);
         });
     }
     exports.updateWebMappingApplicationURL = updateWebMappingApplicationURL;
