@@ -19,15 +19,13 @@
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "tslib", "./dependencies", "./fullItem", "./fullItemHierarchy", "./solution", "./viewing"], factory);
+        define(["require", "exports", "tslib", "./fullItem", "./solution", "./viewing"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var tslib_1 = require("tslib");
-    tslib_1.__exportStar(require("./dependencies"), exports);
     tslib_1.__exportStar(require("./fullItem"), exports);
-    tslib_1.__exportStar(require("./fullItemHierarchy"), exports);
     tslib_1.__exportStar(require("./solution"), exports);
     tslib_1.__exportStar(require("./viewing"), exports);
 });

@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>&quot;fullItemHierarchy&quot; | arcgis-clone-js</title>
+	<title>&quot;common&quot; | arcgis-clone-js</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -56,10 +56,10 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="_fullitemhierarchy_.html">&quot;fullItemHierarchy&quot;</a>
+					<a href="_common_.html">&quot;common&quot;</a>
 				</li>
 			</ul>
-			<h1>External module &quot;fullItemHierarchy&quot;</h1>
+			<h1>External module &quot;common&quot;</h1>
 		</div>
 	</div>
 </header>
@@ -73,13 +73,16 @@
 						<section class="tsd-index-section tsd-is-external">
 							<h3>Interfaces</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-interface tsd-parent-kind-external-module tsd-is-external"><a href="../interfaces/_fullitemhierarchy_.iitemhash.html" class="tsd-kind-icon">IItem<wbr>Hash</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module tsd-is-external"><a href="../interfaces/_common_.iorgsession.html" class="tsd-kind-icon">IOrg<wbr>Session</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module tsd-is-external"><a href="../interfaces/_common_.iswizzle.html" class="tsd-kind-icon">ISwizzle</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module tsd-is-external"><a href="../interfaces/_common_.iswizzlehash.html" class="tsd-kind-icon">ISwizzle<wbr>Hash</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section tsd-is-external">
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-external"><a href="_fullitemhierarchy_.html#getfullitemhierarchy" class="tsd-kind-icon">get<wbr>Full<wbr>Item<wbr>Hierarchy</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-external"><a href="_common_.html#createitemwithdata" class="tsd-kind-icon">create<wbr>Item<wbr>With<wbr>Data</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-external"><a href="_common_.html#updateitemurl" class="tsd-kind-icon">update<wbr>ItemURL</a></li>
 							</ul>
 						</section>
 					</div>
@@ -88,65 +91,103 @@
 			<section class="tsd-panel-group tsd-member-group tsd-is-external">
 				<h2>Functions</h2>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-is-external">
-					<a name="getfullitemhierarchy" class="tsd-anchor"></a>
-					<h3>get<wbr>Full<wbr>Item<wbr>Hierarchy</h3>
+					<a name="createitemwithdata" class="tsd-anchor"></a>
+					<h3>create<wbr>Item<wbr>With<wbr>Data</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Full<wbr>Item<wbr>Hierarchy<span class="tsd-signature-symbol">(</span>rootIds<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span>, requestOptions<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">IUserRequestOptions</span>, collection<span class="tsd-signature-symbol">?: </span><a href="../interfaces/_fullitemhierarchy_.iitemhash.html" class="tsd-signature-type">IItemHash</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_fullitemhierarchy_.iitemhash.html" class="tsd-signature-type">IItemHash</a><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">create<wbr>Item<wbr>With<wbr>Data<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span>, data<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span>, requestOptions<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">IUserRequestOptions</span>, folderId<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span>, access<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">IItemUpdateResponse</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/ArcGIS/arcgis-clone-js/blob/ea51937/src/fullItemHierarchy.ts#L64">fullItemHierarchy.ts:64</a></li>
+									<li>Defined in <a href="https://github.com/ArcGIS/arcgis-clone-js/blob/e0daae4/src/common.ts#L80">common.ts:80</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Fetches the item, data, and resources of one or more AGOL items and their dependencies.</p>
+									<p>Publishes an item and its data as an AGOL item.</p>
 								</div>
-								<pre><code class="language-typescript"><span class="hljs-keyword">import</span> { IItemHash, getFullItemHierarchy } <span class="hljs-keyword">from</span> <span class="hljs-string">"../src/fullItemHierarchy"</span>;
-
-getFullItemHierarchy([<span class="hljs-string">"6fc5992522d34f26b2210d17835eea21"</span>, <span class="hljs-string">"9bccd0fac5f3422c948e15c101c26934"</span>])
-.then(
-  <span class="hljs-function">(<span class="hljs-params">response:IItemHash</span>) =&gt;</span> {
-    <span class="hljs-keyword">let</span> keys = <span class="hljs-built_in">Object</span>.keys(response);
-    <span class="hljs-built_in">console</span>.log(keys.length);  <span class="hljs-comment">// =&gt; "6"</span>
-    <span class="hljs-built_in">console</span>.log((response[keys[<span class="hljs-number">0</span>]] <span class="hljs-keyword">as</span> IFullItem).type);  <span class="hljs-comment">// =&gt; "Web Mapping Application"</span>
-    <span class="hljs-built_in">console</span>.log((response[keys[<span class="hljs-number">0</span>]] <span class="hljs-keyword">as</span> IFullItem).item.title);  <span class="hljs-comment">// =&gt; "ROW Permit Public Comment"</span>
-    <span class="hljs-built_in">console</span>.log((response[keys[<span class="hljs-number">0</span>]] <span class="hljs-keyword">as</span> IFullItem).text.source);  <span class="hljs-comment">// =&gt; "bb3fcf7c3d804271bfd7ac6f48290fcf"</span>
-  },
-  <span class="hljs-function"><span class="hljs-params">error</span> =&gt;</span> {
-    <span class="hljs-comment">// (should not see this as long as both of the above ids--real ones--stay available)</span>
-    <span class="hljs-built_in">console</span>.log(error); <span class="hljs-comment">// =&gt; "Item or group does not exist or is inaccessible: " + the problem id number</span>
-  }
-);</code></pre>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>rootIds: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span></h5>
+									<h5>item: <span class="tsd-signature-type">any</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>AGOL id string or list of AGOL id strings</p>
+										<p>Item&#39;s <code>item</code> section</p>
 									</div>
 								</li>
 								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> requestOptions: <span class="tsd-signature-type">IUserRequestOptions</span></h5>
+									<h5>data: <span class="tsd-signature-type">any</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>Options for requesting information from AGOL</p>
+										<p>Item&#39;s <code>data</code> section</p>
 									</div>
 								</li>
 								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> collection: <a href="../interfaces/_fullitemhierarchy_.iitemhash.html" class="tsd-signature-type">IItemHash</a></h5>
+									<h5>requestOptions: <span class="tsd-signature-type">IUserRequestOptions</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>A hash of items already converted useful for avoiding duplicate conversions and
-										hierarchy tracing</p>
+										<p>Options for the request</p>
+									</div>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagDefault value">Default value</span> folderId: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> =&nbsp;null as string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Id of folder to receive item; null indicates that the item goes into the root
+										folder; ignored for Group item type</p>
+									</div>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagDefault value">Default value</span> access: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> =&nbsp;&quot;private&quot;</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Access to set for item: &#39;public&#39;, &#39;org&#39;, &#39;private&#39;</p>
 									</div>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_fullitemhierarchy_.iitemhash.html" class="tsd-signature-type">IItemHash</a><span class="tsd-signature-symbol">&gt;</span></h4>
-							<p>A promise that will resolve with a hash by id of IFullItems;
-								if any id is inaccessible, a single error response will be produced for the set
-							of ids</p>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">IItemUpdateResponse</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<p>A promise that will resolve with an object reporting success and the Solution id</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-is-external">
+					<a name="updateitemurl" class="tsd-anchor"></a>
+					<h3>update<wbr>ItemURL</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-is-external">
+						<li class="tsd-signature tsd-kind-icon">update<wbr>ItemURL<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, url<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, requestOptions<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">IUserRequestOptions</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/ArcGIS/arcgis-clone-js/blob/e0daae4/src/common.ts#L138">common.ts:138</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Updates the URL of an item.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>id: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>AGOL id of item to update</p>
+									</div>
+								</li>
+								<li>
+									<h5>url: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>URL to assign to item&#39;s base section</p>
+									</div>
+								</li>
+								<li>
+									<h5>requestOptions: <span class="tsd-signature-type">IUserRequestOptions</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Options for the request</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<p>A promise that will resolve when the item has been updated</p>
 						</li>
 					</ul>
 				</section>
@@ -167,14 +208,11 @@ getFullItemHierarchy([<span class="hljs-string">"6fc5992522d34f26b2210d17835eea2
 					<li class="label tsd-is-external">
 						<span>Externals</span>
 					</li>
-					<li class=" tsd-kind-external-module tsd-is-external">
-						<a href="_dependencies_.html">"dependencies"</a>
+					<li class="current tsd-kind-external-module tsd-is-external">
+						<a href="_common_.html">"common"</a>
 					</li>
 					<li class=" tsd-kind-external-module tsd-is-external">
 						<a href="_fullitem_.html">"full<wbr>Item"</a>
-					</li>
-					<li class="current tsd-kind-external-module tsd-is-external">
-						<a href="_fullitemhierarchy_.html">"full<wbr>Item<wbr>Hierarchy"</a>
 					</li>
 					<li class=" tsd-kind-external-module tsd-is-external">
 						<a href="_solution_.html">"solution"</a>
@@ -187,10 +225,19 @@ getFullItemHierarchy([<span class="hljs-string">"6fc5992522d34f26b2210d17835eea2
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module tsd-is-external">
-						<a href="../interfaces/_fullitemhierarchy_.iitemhash.html" class="tsd-kind-icon">IItem<wbr>Hash</a>
+						<a href="../interfaces/_common_.iorgsession.html" class="tsd-kind-icon">IOrg<wbr>Session</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module tsd-is-external">
+						<a href="../interfaces/_common_.iswizzle.html" class="tsd-kind-icon">ISwizzle</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module tsd-is-external">
+						<a href="../interfaces/_common_.iswizzlehash.html" class="tsd-kind-icon">ISwizzle<wbr>Hash</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-external">
-						<a href="_fullitemhierarchy_.html#getfullitemhierarchy" class="tsd-kind-icon">get<wbr>Full<wbr>Item<wbr>Hierarchy</a>
+						<a href="_common_.html#createitemwithdata" class="tsd-kind-icon">create<wbr>Item<wbr>With<wbr>Data</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-external">
+						<a href="_common_.html#updateitemurl" class="tsd-kind-icon">update<wbr>ItemURL</a>
 					</li>
 				</ul>
 			</nav>

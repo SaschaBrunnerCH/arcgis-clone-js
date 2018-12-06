@@ -19,19 +19,19 @@
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "tslib", "@esri/arcgis-rest-items", "@esri/arcgis-rest-groups", "@esri/arcgis-rest-feature-service-admin", "@esri/arcgis-rest-sharing", "@esri/arcgis-rest-request", "./fullItemHierarchy", "./dependencies"], factory);
+        define(["require", "exports", "tslib", "@esri/arcgis-rest-feature-service-admin", "@esri/arcgis-rest-groups", "@esri/arcgis-rest-items", "@esri/arcgis-rest-sharing", "@esri/arcgis-rest-request", "./common", "./fullItem"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var tslib_1 = require("tslib");
-    var items = require("@esri/arcgis-rest-items");
-    var groups = require("@esri/arcgis-rest-groups");
     var featureServiceAdmin = require("@esri/arcgis-rest-feature-service-admin");
+    var groups = require("@esri/arcgis-rest-groups");
+    var items = require("@esri/arcgis-rest-items");
     var sharing = require("@esri/arcgis-rest-sharing");
     var arcgis_rest_request_1 = require("@esri/arcgis-rest-request");
-    var fullItemHierarchy_1 = require("./fullItemHierarchy");
-    var dependencies_1 = require("./dependencies");
+    var mCommon = require("./common");
+    var mFullItem = require("./fullItem");
     /**
      * Converts one or more AGOL items and their dependencies into a hash by id of JSON item descriptions.
      *
@@ -64,7 +64,7 @@
     function createSolution(solutionRootIds, requestOptions) {
         return new Promise(function (resolve, reject) {
             // Get the items forming the solution
-            fullItemHierarchy_1.getFullItemHierarchy(solutionRootIds, requestOptions)
+            getFullItemHierarchy(solutionRootIds, requestOptions)
                 .then(function (solution) {
                 var adjustmentPromises = [];
                 // Prepare the Solution by adjusting its items
@@ -75,8 +75,13 @@
                     // 2. for web mapping apps,
                     //    a. generalize app URL
                     if (fullItem.type === "Web Mapping Application") {
-                        generalizeWebMappingApplicationURLs(fullItem);
-                        // 3. for feature services,
+                        generalizeWebMappingApplicationURL(fullItem);
+                        // 3. for items missing their application URLs,
+                        //    a. fill in URL
+                    }
+                    else if (fullItem.type === "Dashboard" || fullItem.type === "Web Map") {
+                        addGeneralizedApplicationURL(fullItem);
+                        // 4. for feature services,
                         //    a. fill in missing data
                         //    b. get layer & table details
                         //    c. generalize layer & table URLs
@@ -101,80 +106,68 @@
      *
      * @param title Title for Solution item to create
      * @param solution Hash of JSON descriptions of items to publish into Solution
-     * @param access Access to set for item: 'public', 'org', 'private'
      * @param requestOptions Options for the request
+     * @param folderId Id of folder to receive item; null/empty indicates that the item goes into the root
+     *                 folder; ignored for Group item type
+     * @param access Access to set for item: 'public', 'org', 'private'
      * @returns A promise that will resolve with an object reporting success and the Solution id
      */
-    function publishSolution(title, solution, access, requestOptions) {
-        return new Promise(function (resolve, reject) {
-            // Define the solution item
-            var item = {
-                title: title,
-                type: "Solution",
-                itemType: "text",
-                access: access,
-                listed: false,
-                commentsEnabled: false
-            };
-            var data = {
-                items: solution
-            };
-            // Create it and add its data section
-            var options = tslib_1.__assign({ title: title, item: item }, requestOptions);
-            items.createItem(options)
-                .then(function (results) {
-                var options = tslib_1.__assign({ id: results.id, data: data }, requestOptions);
-                items.addItemJsonData(options)
-                    .then(function (results) {
-                    // Set the access manually since the access value in createItem appears to be ignored
-                    var options = tslib_1.__assign({ id: results.id, access: access }, requestOptions);
-                    sharing.setItemAccess(options)
-                        .then(function (results) {
-                        resolve({
-                            success: true,
-                            id: results.itemId
-                        });
-                    }, function (error) { return reject(error.originalMessage); });
-                }, function (error) { return reject(error.originalMessage); });
-            }, function (error) { return reject(error.originalMessage); });
-        });
+    function publishSolution(title, solution, requestOptions, folderId, access) {
+        if (folderId === void 0) { folderId = null; }
+        if (access === void 0) { access = "private"; }
+        // Define the solution item
+        var item = {
+            title: title,
+            type: "Solution",
+            itemType: "text",
+            access: access,
+            listed: false,
+            commentsEnabled: false
+        };
+        var data = {
+            items: solution
+        };
+        return mCommon.createItemWithData(item, data, requestOptions, folderId, access);
     }
     exports.publishSolution = publishSolution;
     /**
      * Converts a hash by id of generic JSON item descriptions into AGOL items.
      *
-     * @param solution A hash of item descriptions to convert
+     * @param solution A hash of item descriptions to convert; note that the item ids are updated
+     *     to their cloned versions
      * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @param solutionName Name root to use if folder is to be created
      * @param folderId AGOL id of folder to receive item, or null/empty if folder is to be created;
      *     if created, folder name is a combination of the solution name and a timestamp for uniqueness,
      *     e.g., "Dashboard (1540841846958)"
-     * @param solutionName Name root to use if folder is to be created
+     * @param access Access to set for item: 'public', 'org', 'private'
      * @returns A promise that will resolve with a list of the ids of items created in AGOL
      */
-    function cloneSolution(solution, orgSession, folderId, solutionName) {
+    function cloneSolution(solution, orgSession, solutionName, folderId, access) {
+        if (solutionName === void 0) { solutionName = ""; }
+        if (folderId === void 0) { folderId = null; }
+        if (access === void 0) { access = "private"; }
         return new Promise(function (resolve, reject) {
-            var itemIdList = [];
             var swizzles = {};
+            var clonedSolution = {};
             // Don't bother creating folder if there are no items in solution
             if (!solution || Object.keys(solution).length === 0) {
-                resolve(itemIdList);
+                resolve(clonedSolution);
             }
             // Run through the list of item ids in clone order
             var cloneOrderChecklist = topologicallySortItems(solution);
             function runThroughChecklist() {
                 if (cloneOrderChecklist.length === 0) {
-                    resolve(itemIdList);
+                    resolve(clonedSolution);
                     return;
                 }
                 // Clone item at top of list
                 var itemId = cloneOrderChecklist.shift();
-                createItem(solution[itemId], folderId, swizzles, orgSession)
-                    .then(function (newItemId) {
-                    itemIdList.push(newItemId);
+                createSwizzledItem(solution[itemId], folderId, swizzles, orgSession)
+                    .then(function (clone) {
+                    clonedSolution[clone.item.id] = clone;
                     runThroughChecklist();
-                }, function (error) {
-                    reject(error);
-                });
+                }, reject);
             }
             // Use specified folder to hold the hydrated items to avoid name clashes
             if (folderId) {
@@ -204,7 +197,17 @@
      * name has to be acceptable to AGOL, otherwise it discards the URL.
      * @protected
      */
-    exports.aPlaceholderServerName = "https://arcgis.com";
+    exports.PLACEHOLDER_SERVER_NAME = "https://arcgis.com";
+    /**
+     * The portion of a Dashboard app URL between the server and the app id.
+     * @protected
+     */
+    exports.OPS_DASHBOARD_APP_URL_PART = "/apps/opsdashboard/index.html#/";
+    /**
+     * The portion of a Webmap URL between the server and the map id.
+     * @protected
+     */
+    exports.WEBMAP_APP_URL_PART = "/home/webmap/viewer.html?webmap=";
     /**
      * A visit flag used in the topological sort algorithm.
      * @protected
@@ -218,6 +221,24 @@
         /** finished */
         SortVisitColor[SortVisitColor["Black"] = 2] = "Black";
     })(SortVisitColor || (SortVisitColor = {}));
+    /**
+     * Replaces the application URL with a generalized form that omits the source server name and id
+     * values in the URL query.
+     * @param fullItem Item to update
+     * @protected
+     */
+    function addGeneralizedApplicationURL(fullItem) {
+        // Create URL with a placeholder server name because otherwise AGOL makes URL null; don't include item id; e.g.,
+        // Dashboard: https://<PLACEHOLDER_SERVER_NAME>/apps/opsdashboard/index.html#/
+        // Web Map: https://<PLACEHOLDER_SERVER_NAME>/home/webmap/viewer.html?webmap=
+        if (fullItem.type === "Dashboard") {
+            fullItem.item.url = exports.PLACEHOLDER_SERVER_NAME + exports.OPS_DASHBOARD_APP_URL_PART;
+        }
+        else if (fullItem.type === "Web Map") {
+            fullItem.item.url = exports.PLACEHOLDER_SERVER_NAME + exports.WEBMAP_APP_URL_PART;
+        }
+    }
+    exports.addGeneralizedApplicationURL = addGeneralizedApplicationURL;
     /**
      * Adds the layers and tables of a feature service to it and restores their relationships.
      *
@@ -320,15 +341,16 @@
      * @returns A promise that will resolve with the id of the created item
      * @protected
      */
-    function createItem(fullItem, folderId, swizzles, orgSession) {
+    function createSwizzledItem(fullItem, folderId, swizzles, orgSession) {
         return new Promise(function (resolve, reject) {
+            var clonedItem = JSON.parse(JSON.stringify(fullItem));
             // Swizzle item's dependencies
-            dependencies_1.swizzleDependencies(fullItem, swizzles);
+            mFullItem.swizzleDependencies(clonedItem, swizzles);
             // Feature Services
-            if (fullItem.type === "Feature Service") {
-                var options = tslib_1.__assign({ item: fullItem.item, folderId: folderId }, orgSession);
-                if (fullItem.data) {
-                    options.item.text = fullItem.data;
+            if (clonedItem.type === "Feature Service") {
+                var options = tslib_1.__assign({ item: clonedItem.item, folderId: folderId }, orgSession);
+                if (clonedItem.data) {
+                    options.item.text = clonedItem.data;
                 }
                 // Make the item name unique
                 options.item.name += "_" + getTimestamp();
@@ -340,62 +362,64 @@
                 featureServiceAdmin.createFeatureService(options)
                     .then(function (createResponse) {
                     // Add the new item to the swizzle list
-                    swizzles[fullItem.item.id] = {
+                    swizzles[clonedItem.item.id] = {
                         id: createResponse.serviceItemId,
                         url: createResponse.serviceurl
                     };
-                    fullItem.item.id = createResponse.serviceItemId;
-                    fullItem.item.url = createResponse.serviceurl;
+                    clonedItem.item.id = createResponse.serviceItemId;
+                    clonedItem.item.url = createResponse.serviceurl;
                     // Add the feature service's layers and tables to it
-                    addFeatureServiceLayersAndTables(fullItem, swizzles, orgSession)
-                        .then(function () { return resolve(fullItem.item.id); });
+                    addFeatureServiceLayersAndTables(clonedItem, swizzles, orgSession)
+                        .then(function () { return resolve(clonedItem); });
                 }, reject);
                 // Groups
             }
-            else if (fullItem.type === "Group") {
-                var options = tslib_1.__assign({ group: fullItem.item }, orgSession);
+            else if (clonedItem.type === "Group") {
+                var options = tslib_1.__assign({ group: clonedItem.item }, orgSession);
                 // Make the item title unique
                 options.group.title += "_" + getTimestamp();
                 // Create the item
                 groups.createGroup(options)
                     .then(function (createResponse) {
                     // Add the new item to the swizzle list
-                    swizzles[fullItem.item.id] = {
+                    swizzles[clonedItem.item.id] = {
                         id: createResponse.group.id
                     };
-                    fullItem.item.id = createResponse.group.id;
+                    clonedItem.item.id = createResponse.group.id;
                     // Add the group's items to it
-                    addGroupMembers(fullItem, swizzles, orgSession)
-                        .then(function () { return resolve(fullItem.item.id); });
+                    addGroupMembers(clonedItem, swizzles, orgSession)
+                        .then(function () { return resolve(clonedItem); });
                 }, function (error) { return reject(error.response.error.message); });
                 // All other types
             }
             else {
-                var options = tslib_1.__assign({ item: fullItem.item, folder: folderId }, orgSession);
-                if (fullItem.data) {
-                    options.item.text = fullItem.data;
+                var options = tslib_1.__assign({ item: clonedItem.item, folder: folderId }, orgSession);
+                if (clonedItem.data) {
+                    options.item.text = clonedItem.data;
                 }
                 // Create the item
                 items.createItemInFolder(options)
                     .then(function (createResponse) {
                     // Add the new item to the swizzle list
-                    swizzles[fullItem.item.id] = {
+                    swizzles[clonedItem.item.id] = {
                         id: createResponse.id
                     };
-                    fullItem.item.id = createResponse.id;
-                    // For a web mapping app, update its app URL
-                    if (fullItem.type === "Web Mapping Application") {
-                        updateWebMappingApplicationURL(fullItem, orgSession)
-                            .then(function () { return resolve(fullItem.item.id); }, function (error) { return reject(error.response.error.message); });
+                    clonedItem.item.id = createResponse.id;
+                    // Update the app URL of a dashboard, webmap, or web mapping app
+                    if (clonedItem.type === "Dashboard" ||
+                        clonedItem.type === "Web Map" ||
+                        clonedItem.type === "Web Mapping Application") {
+                        updateApplicationURL(clonedItem, orgSession)
+                            .then(function () { return resolve(clonedItem); }, function (error) { return reject(error.response.error.message); });
                     }
                     else {
-                        resolve(fullItem.item.id);
+                        resolve(clonedItem);
                     }
                 }, function (error) { return reject(error.response.error.message); });
             }
         });
     }
-    exports.createItem = createItem;
+    exports.createSwizzledItem = createSwizzledItem;
     /**
      * Fills in missing data, including full layer and table definitions, in a feature services' definition.
      *
@@ -445,12 +469,15 @@
      * @param fullItem Web mapping application definition to be modified
      * @protected
      */
-    function generalizeWebMappingApplicationURLs(fullItem) {
-        // Remove org base URL and app id
+    function generalizeWebMappingApplicationURL(fullItem) {
+        // Remove org base URL and app id, e.g.,
+        //   http://statelocaltryit.maps.arcgis.com/apps/CrowdsourcePolling/index.html?appid=6fc5992522d34f26b2210d17835eea21
+        // to
+        //   http://<PLACEHOLDER_SERVER_NAME>/apps/CrowdsourcePolling/index.html?appid=
         // Need to add placeholder server name because otherwise AGOL makes URL null
         var orgUrl = fullItem.item.url.replace(fullItem.item.id, "");
         var iSep = orgUrl.indexOf("//");
-        fullItem.item.url = exports.aPlaceholderServerName + // add placeholder server name
+        fullItem.item.url = exports.PLACEHOLDER_SERVER_NAME + // add placeholder server name
             orgUrl.substr(orgUrl.indexOf("/", iSep + 2));
     }
     /**
@@ -581,7 +608,8 @@
         // 1 call DFS(G) to compute finishing times v.f for each vertex v
         // 2 as each vertex is finished, insert it onto front of a linked list
         // 3 return the linked list of vertices
-        var buildList = []; // list of ordered vertices--don't need linked list because we just want relative ordering
+        var buildList = []; // list of ordered vertices--don't need linked list because
+        // we just want relative ordering
         var verticesToVisit = {};
         Object.keys(items).forEach(function (vertexId) {
             verticesToVisit[vertexId] = SortVisitColor.White; // not yet visited
@@ -611,6 +639,25 @@
         return buildList;
     }
     exports.topologicallySortItems = topologicallySortItems;
+    /**
+     * Updates the URL of an application to one usable for running the app.
+     *
+     * @param fullItem An item that has an application URL, e.g., a dashboard, webmap, or web mapping
+     *                 application
+     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
+     * @returns A promise that will resolve when fullItem has been updated
+     * @protected
+     */
+    function updateApplicationURL(fullItem, orgSession) {
+        var url = orgSession.orgUrl +
+            (fullItem.item.url.substr(exports.PLACEHOLDER_SERVER_NAME.length)) + // remove placeholder server name
+            fullItem.item.id;
+        // Update local copy
+        fullItem.item.url = url;
+        // Update AGOL copy
+        return mCommon.updateItemURL(fullItem.item.id, url, orgSession);
+    }
+    exports.updateApplicationURL = updateApplicationURL;
     /**
      * Updates a feature service with a list of layers and/or tables.
      *
@@ -661,32 +708,96 @@
             }
         });
     }
+    //-- Internals -------------------------------------------------------------------------------------------------------//
     /**
-     * Updates the URL of a web mapping application to one usable for running the app.
+     * Fetches the item, data, and resources of one or more AGOL items and their dependencies.
      *
-     * @param fullItem A web mapping application
-     * @param orgSession Options for requesting information from AGOL, including org and portal URLs
-     * @returns A promise that will resolve when fullItem has been updated
+     * ```typescript
+     * import { IItemHash, getFullItemHierarchy } from "../src/fullItemHierarchy";
+     *
+     * getFullItemHierarchy(["6fc5992522d34f26b2210d17835eea21", "9bccd0fac5f3422c948e15c101c26934"])
+     * .then(
+     *   (response:IItemHash) => {
+     *     let keys = Object.keys(response);
+     *     console.log(keys.length);  // => "6"
+     *     console.log((response[keys[0]] as IFullItem).type);  // => "Web Mapping Application"
+     *     console.log((response[keys[0]] as IFullItem).item.title);  // => "ROW Permit Public Comment"
+     *     console.log((response[keys[0]] as IFullItem).text.source);  // => "bb3fcf7c3d804271bfd7ac6f48290fcf"
+     *   },
+     *   error => {
+     *     // (should not see this as long as both of the above ids--real ones--stay available)
+     *     console.log(error); // => "Item or group does not exist or is inaccessible: " + the problem id number
+     *   }
+     * );
+     * ```
+     *
+     * @param rootIds AGOL id string or list of AGOL id strings
+     * @param requestOptions Options for requesting information from AGOL
+     * @param collection A hash of items already converted useful for avoiding duplicate conversions and
+     * hierarchy tracing
+     * @returns A promise that will resolve with a hash by id of IFullItems;
+     * if any id is inaccessible, a single error response will be produced for the set
+     * of ids
      * @protected
      */
-    function updateWebMappingApplicationURL(fullItem, orgSession) {
+    function getFullItemHierarchy(rootIds, requestOptions, collection) {
+        if (!collection) {
+            collection = {};
+        }
         return new Promise(function (resolve, reject) {
-            // Update its URL
-            var options = {
-                item: {
-                    'id': fullItem.item.id,
-                    'url': orgSession.orgUrl +
-                        (fullItem.item.url.substr(exports.aPlaceholderServerName.length)) + // remove placeholder server name
-                        fullItem.item.id
-                },
-                authentication: orgSession.authentication
-            };
-            items.updateItem(options)
-                .then(function (updateResp) {
-                resolve(fullItem.item.id);
-            }, reject);
+            if (!rootIds || (Array.isArray(rootIds) && rootIds.length === 0)) {
+                reject(mFullItem.createUnavailableItemError(null));
+            }
+            else if (typeof rootIds === "string") {
+                // Handle a single AGOL id
+                var rootId_1 = rootIds;
+                if (collection[rootId_1]) {
+                    resolve(collection); // Item and its dependents are already in list or are queued
+                }
+                else {
+                    // Add the id as a placeholder to show that it will be fetched
+                    var getItemPromise = mFullItem.getFullItem(rootId_1, requestOptions);
+                    collection[rootId_1] = getItemPromise;
+                    // Get the specified item
+                    getItemPromise
+                        .then(function (fullItem) {
+                        // Set the value keyed by the id
+                        collection[rootId_1] = fullItem;
+                        // Trace item dependencies
+                        if (fullItem.dependencies.length === 0) {
+                            resolve(collection);
+                        }
+                        else {
+                            // Get its dependents, asking each to get its dependents via
+                            // recursive calls to this function
+                            var dependentDfds_1 = [];
+                            fullItem.dependencies.forEach(function (dependentId) {
+                                if (!collection[dependentId]) {
+                                    dependentDfds_1.push(getFullItemHierarchy(dependentId, requestOptions, collection));
+                                }
+                            });
+                            Promise.all(dependentDfds_1)
+                                .then(function () {
+                                resolve(collection);
+                            }, function (error) { return reject(error); });
+                        }
+                    }, function (error) { return reject(error); });
+                }
+            }
+            else {
+                // Handle a list of one or more AGOL ids by stepping through the list
+                // and calling this function recursively
+                var getHierarchyPromise_1 = [];
+                rootIds.forEach(function (rootId) {
+                    getHierarchyPromise_1.push(getFullItemHierarchy(rootId, requestOptions, collection));
+                });
+                Promise.all(getHierarchyPromise_1)
+                    .then(function () {
+                    resolve(collection);
+                }, function (error) { return reject(error); });
+            }
         });
     }
-    exports.updateWebMappingApplicationURL = updateWebMappingApplicationURL;
+    exports.getFullItemHierarchy = getFullItemHierarchy;
 });
 //# sourceMappingURL=solution.js.map
