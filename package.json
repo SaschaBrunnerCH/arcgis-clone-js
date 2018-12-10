@@ -11,7 +11,8 @@
     "docs": "typedoc --target ES5 --out ./docs/src/ src/index.ts",
     "docs:mocks": "typedoc --target ES5 --out ./docs/mocks/ test/mocks/index.ts",
     "build:esm": "tsc --module ES2015 --outDir ./dist/esm --declaration",
-    "build:cjs": "tsc --module CommonJS --outDir ./dist/cjs"
+    "build:cjs": "tsc --module CommonJS --outDir ./dist/cjs",
+    "clean": "rm -rf ./dist/"
   },
   "repository": {
     "type": "git",
