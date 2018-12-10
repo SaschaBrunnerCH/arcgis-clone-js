@@ -94,7 +94,11 @@ export function getFullItem (
         };
 
         // Request item data section
-        let dataPromise = items.getItemData(id, requestOptions);
+        let dataRequest:items.IItemDataRequestOptions = {
+          ...requestOptions,
+          file: FILE_BASED_ITEM_TYPES.indexOf(itemResponse.type) > -1
+        };
+        let dataPromise = items.getItemData(id, dataRequest);
 
         // Request item resources
         let resourceRequestOptions = {
@@ -194,6 +198,55 @@ export function createUnavailableItemError (
 }
 
 //-- Internals -------------------------------------------------------------------------------------------------------//
+
+/**
+ * AGOL item types supported by this software.
+ * @protected
+ */
+export const SUPPORTED_ITEM_TYPES = [
+  "ArcGIS Pro Add In",
+  "Code Attachment",
+  "Code Sample",
+  "Dashboard",
+  "Desktop Add In",
+  "Desktop Application Template",
+  "Document Link",
+  "Feature Collection",
+  "Feature Service",
+  "Form",
+  "Geoprocessing Package",
+  "Geoprocessing Sample",
+  "Image",
+  "Layer Package",
+  "Map Template",
+  "Operation View",
+  "Pro Map",
+  "Project Package",
+  "Project Template",
+  "Web Map",
+  "Web Mapping Application",
+  "Workforce Project"
+];
+
+/**
+ * AGOL item types supported by this software that are based on file data.
+ * @protected
+ */
+export const FILE_BASED_ITEM_TYPES = [
+  "ArcGIS Pro Add In",
+  "Code Attachment",
+  "Code Sample",
+  "Desktop Add In",
+  "Desktop Application Template",
+  "Form",
+  "Geoprocessing Package",
+  "Geoprocessing Sample",
+  "Image",
+  "Pro Map",
+  "Project Package",
+  "Project Template",
+  "Workforce Project"
+];
 
 /**
  * The relevant elements of a Dashboard widget.
@@ -554,3 +607,4 @@ export function removeDuplicates (
   arrayWithDups.forEach((arrayElem:string) => uniqueStrings[arrayElem] = true);
   return Object.keys(uniqueStrings);
 }
+
