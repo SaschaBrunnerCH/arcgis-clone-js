@@ -1,5 +1,4 @@
-[![npm version][npm-img]][npm-url]
-[![build status][travis-img]][travis-url]
+![build status](https://travis-ci.org/Esri/arcgis-clone-js.svg?branch=develop)
 [![Coverage Status][coverage-img]][coverage-url]
 [![apache 2.0 licensed][license-img]][license-url]
 
@@ -82,6 +81,8 @@ Some useful commands include:
 * `npm run test:node` runs ts-node and jasmine
 * `npm run docs` creates documentation about the API and its internal functions
 * `npm run docs:mocks` creates documentation about the mock items used in unit testing
+* `npm run lint` lints the project
+* `npm run ver` reports the version of TypeScript
 
 ### Frequently Asked Questions
 
