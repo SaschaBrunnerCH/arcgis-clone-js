@@ -32,20 +32,7 @@
 
     <div class="section">
       <div class="section-title">Items to package into a single Solution (along with their dependencies)</div>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="9bccd0fac5f3422c948e15c101c26934">
-        <label for="9bccd0fac5f3422c948e15c101c26934">ROW Permit Dashboard (Dashboard)</label> <br>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="8974dec44d794311a69f5562659587e6">
-        <label for="8974dec44d794311a69f5562659587e6">ROW Permit Manager (Web Mapping Application)</label> <br>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="164831217e154849a731573e1855cb1a">
-        <label for="164831217e154849a731573e1855cb1a">ROW Permit Public Comment (Web Map)</label> <br>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="6fc5992522d34f26b2210d17835eea21">
-        <label for="6fc5992522d34f26b2210d17835eea21">ROW Permit Public Comment (Web Mapping Application)</label> <br>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="3ee671cf05594744864afe6c368d4a1a">
-        <label for="3ee671cf05594744864afe6c368d4a1a">PointFilterableComments (Service Definition)</label> <br>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="435b1a7cb3a04885afba40c07a4f2fdf">
-        <label for="435b1a7cb3a04885afba40c07a4f2fdf">Climbing A Mountain (Image)</label> <br>
-      <input type="checkbox" onclick="onCheckboxClicked()" name="9461d58bf12048469e7bc5bc0cbc8265">
-        <label for="9461d58bf12048469e7bc5bc0cbc8265">src zip (Code Sample)</label> <br>
+      <div id="sourceItemsDiv"></div>
       <br>
       <button id="createBtn" onclick="createSolutionFcn()" disabled="disabled">Create solution</button>
     </div>
@@ -126,6 +113,59 @@
     createSolutionFcn = createSolution;
     publishSolutionFcn = publishSolution;
     var requestOptions, orgUrl, portalUrl, solution;
+
+    // Add sample items to display
+    var sourceItemsDiv = document.getElementById('sourceItemsDiv');
+    var sampleItems = [
+      ["ArcGIS Pro Add In", "Coordinate Conversion", "eb9c2241d0a94e198635b220307abd0f"],
+      ["Code Attachment", "", ""],  //???
+      ["Code Sample", "src zip", "9461d58bf12048469e7bc5bc0cbc8265"],
+      ["Code Sample", "zip", "e25678986d7d4a828c300e3e834e4fcf"],
+      ["CSV", "csv", "0fa88a9ff71e4ab0bd5c3be8b2c84ab2"],
+      ["Dashboard", "ROW Permit Dashboard", "9bccd0fac5f3422c948e15c101c26934"],
+      ["Desktop Add In", "Python Add-In Wizard", "5f3aefe77f6b4f61ad3e4c62f30bff3b"],
+      ["Desktop Application Template", "Address Data Management", "11a6b8b5362143ce86d0ae71441f03b6"],
+      ["Document Link", "Master Thoroughfare Plan June 2009", "7d646b2eacd8404781790ad6c763fc41"],
+      ["Document Link", "Solution Deployment Tool for ArcGIS Pro", "d159b242e42243a0a110e25703de9c32"],
+      ["Feature Collection", "", ""],  //???
+      ["Feature Service", "ROWPermits_dashboard", "ba18dc5e55d14f5a9a9d2a5c411225a9"],
+      ["Form", "Homeless Count", "873994be893f47a4bf01d3e6c245b5cd"],
+      ["Geoprocessing Package", "UploadExample", "d31cc0d3bfbd4e7ba14dc4c6e5a8bb77"],
+      ["Geoprocessing Sample", "3D Sample Tools", "fe221371b77940749ff96e90f2de3d10"],
+      ["Image", "Climbing A Mountain", "435b1a7cb3a04885afba40c07a4f2fdf"],
+      ["Image", "jpeg", "4eeb0354522d49228c677458c09508ff"],
+      ["Image", "png", "ce38947c851c4f80803b97711216a01c"],
+      ["Image", "tiff", "ab6347ddb9b040a98db42798ff9e3233"],
+      ["Layer Package", "Gemeentegrenzen 2014", "218ecc03273d4de184d99be8f22cc0a7"],
+      ["Map Template", "PollMap Application Sample Template for ArcGIS 10", "cbd7cc140f354bcf8343e549cdc97902"],
+      ["Microsoft Excel", "xlsx", "2bed2d3bbc8744168c40ff71305997cb"],
+      ["Microsoft Powerpoint", "pptx", "1ab1ef7e1cb14a27a340c328dad942ca"],
+      ["Microsoft Word", "word", "bcd111a69ee84468b21295b1448ff2e5"],
+      ["Operation View", "Photo Survey Dashboard", "87b58050d9514e0e8a00d1611048f8d3"],
+      ["PDF", "pdf", "8a399c5a087441b89573a7fad905998a"],
+      ["Pro Map", "Heavy_Rail_Expansion", "ef249342c29c461096fcc68dfc64ee31"],
+      ["Project Package", "Lake Poyang Project", "dee08e6b6969406bb9696a3f370e03d3"],
+      ["Project Template", "MaritimeS101_Project2_2", "d40f64bcb9114a9ba6a67156ea522993"],
+      ["Service Definition", "PointFilterableComments", "3ee671cf05594744864afe6c368d4a1a"],
+      ["Web Map", "Railroads", "3f789c81207b48bdb7dd80e3403dde96"],
+      ["Web Map", "ROW Permit Public Comment", "164831217e154849a731573e1855cb1a"],
+      ["Web Map", "webmap", "b1c3fd3061de44afbaffd6241ddc8766", "6fc5992522d34f26b2210d17835eea21"],
+      ["Web Mapping Application", "ROW Permit Manager", "8974dec44d794311a69f5562659587e6"],
+      ["Web Mapping Application", "ROW Permit Public Comment", "6fc5992522d34f26b2210d17835eea21"],
+      ["Web Mapping Application", "webapp", "d7746f71b56f4937a72df1026964aba8"],
+      ["Workforce Project", "BOE Technical Support", "fb04d6dbc9e046cba1f39b3cf10c6e85"]
+    ];
+    sampleItems.forEach(function (sample) {
+      var agolType = sample[0];
+      var title = sample[1];
+      var agolId = sample[2];
+      if (agolId) {
+        sourceItemsDiv.innerHTML +=
+          '<input type="checkbox" onclick="onCheckboxClicked()" name="' + agolId +
+          '"><label for="' + agolId + ' ">' + agolType + ' "' + title + '"</label><br>';
+      }
+    });
+
 
     document.getElementById('page').style.display = 'block';
 
