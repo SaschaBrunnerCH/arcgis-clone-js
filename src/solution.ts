@@ -666,6 +666,116 @@ function getFirstUsableName (
 }
 
 /**
+ * Fetches the item, data, and resources of one or more AGOL items and their dependencies.
+ *
+ * ```typescript
+ * import { IItemHash, getFullItemHierarchy } from "../src/fullItemHierarchy";
+ *
+ * getFullItemHierarchy(["6fc5992522d34f26b2210d17835eea21", "9bccd0fac5f3422c948e15c101c26934"])
+ * .then(
+ *   (response:IItemHash) => {
+ *     let keys = Object.keys(response);
+ *     console.log(keys.length);  // => "6"
+ *     console.log((response[keys[0]] as IFullItem).type);  // => "Web Mapping Application"
+ *     console.log((response[keys[0]] as IFullItem).item.title);  // => "ROW Permit Public Comment"
+ *     console.log((response[keys[0]] as IFullItem).text.source);  // => "bb3fcf7c3d804271bfd7ac6f48290fcf"
+ *   },
+ *   error => {
+ *     // (should not see this as long as both of the above ids--real ones--stay available)
+ *     console.log(error); // => "Item or group does not exist or is inaccessible: " + the problem id number
+ *   }
+ * );
+ * ```
+ *
+ * @param rootIds AGOL id string or list of AGOL id strings
+ * @param requestOptions Options for requesting information from AGOL
+ * @param collection A hash of items already converted useful for avoiding duplicate conversions and
+ * hierarchy tracing
+ * @returns A promise that will resolve with a hash by id of IFullItems;
+ * if any id is inaccessible, a single error response will be produced for the set
+ * of ids
+ * @protected
+ */
+export function getFullItemHierarchy (
+  rootIds: string | string[],
+  requestOptions: IUserRequestOptions,
+  collection?: IFullItemHash
+): Promise<IFullItemHash> {
+  if (!collection) {
+    collection = {};
+  }
+
+  return new Promise((resolve, reject) => {
+    if (!rootIds || (Array.isArray(rootIds) && rootIds.length === 0)) {
+      reject(mFullItem.createUnavailableItemError(null));
+
+    } else if (typeof rootIds === "string") {
+      // Handle a single AGOL id
+      const rootId = rootIds;
+      if (collection[rootId]) {
+        resolve(collection);  // Item and its dependents are already in list or are queued
+
+      } else {
+        // Add the id as a placeholder to show that it will be fetched
+        const getItemPromise = mFullItem.getFullItem(rootId, requestOptions);
+        collection[rootId] = getItemPromise;
+
+        // Get the specified item
+        getItemPromise
+        .then(
+          fullItem => {
+            // Set the value keyed by the id
+            collection[rootId] = fullItem;
+
+            // Trace item dependencies
+            if (fullItem.dependencies.length === 0) {
+              resolve(collection);
+
+            } else {
+              // Get its dependents, asking each to get its dependents via
+              // recursive calls to this function
+              const dependentDfds:Array<Promise<IFullItemHash>> = [];
+
+              fullItem.dependencies.forEach(
+                dependentId => {
+                  if (!collection[dependentId]) {
+                    dependentDfds.push(getFullItemHierarchy(dependentId, requestOptions, collection));
+                  }
+                }
+              );
+              Promise.all(dependentDfds)
+              .then(
+                () => {
+                  resolve(collection);
+                },
+                (error:ArcGISRequestError) => reject(error)
+              );
+            }
+          },
+          (error:ArcGISRequestError) => reject(error)
+        );
+      }
+
+    } else {
+      // Handle a list of one or more AGOL ids by stepping through the list
+      // and calling this function recursively
+      const getHierarchyPromise:Array<Promise<IFullItemHash>> = [];
+
+      rootIds.forEach(rootId => {
+        getHierarchyPromise.push(getFullItemHierarchy(rootId, requestOptions, collection));
+      });
+      Promise.all(getHierarchyPromise)
+      .then(
+        () => {
+          resolve(collection);
+        },
+        (error:ArcGISRequestError) => reject(error)
+      );
+    }
+  });
+}
+
+/**
  * Gets the full definitions of the layers affiliated with a hosted service.
  *
  * @param serviceUrl URL to hosted service
@@ -913,118 +1023,6 @@ function updateFeatureServiceDefinition(
       );
     } else {
       resolve();
-    }
-  });
-}
-
-// -- Internals ------------------------------------------------------------------------------------------------------//
-
-/**
- * Fetches the item, data, and resources of one or more AGOL items and their dependencies.
- *
- * ```typescript
- * import { IItemHash, getFullItemHierarchy } from "../src/fullItemHierarchy";
- *
- * getFullItemHierarchy(["6fc5992522d34f26b2210d17835eea21", "9bccd0fac5f3422c948e15c101c26934"])
- * .then(
- *   (response:IItemHash) => {
- *     let keys = Object.keys(response);
- *     console.log(keys.length);  // => "6"
- *     console.log((response[keys[0]] as IFullItem).type);  // => "Web Mapping Application"
- *     console.log((response[keys[0]] as IFullItem).item.title);  // => "ROW Permit Public Comment"
- *     console.log((response[keys[0]] as IFullItem).text.source);  // => "bb3fcf7c3d804271bfd7ac6f48290fcf"
- *   },
- *   error => {
- *     // (should not see this as long as both of the above ids--real ones--stay available)
- *     console.log(error); // => "Item or group does not exist or is inaccessible: " + the problem id number
- *   }
- * );
- * ```
- *
- * @param rootIds AGOL id string or list of AGOL id strings
- * @param requestOptions Options for requesting information from AGOL
- * @param collection A hash of items already converted useful for avoiding duplicate conversions and
- * hierarchy tracing
- * @returns A promise that will resolve with a hash by id of IFullItems;
- * if any id is inaccessible, a single error response will be produced for the set
- * of ids
- * @protected
- */
-export function getFullItemHierarchy (
-  rootIds: string | string[],
-  requestOptions: IUserRequestOptions,
-  collection?: IFullItemHash
-): Promise<IFullItemHash> {
-  if (!collection) {
-    collection = {};
-  }
-
-  return new Promise((resolve, reject) => {
-    if (!rootIds || (Array.isArray(rootIds) && rootIds.length === 0)) {
-      reject(mFullItem.createUnavailableItemError(null));
-
-    } else if (typeof rootIds === "string") {
-      // Handle a single AGOL id
-      const rootId = rootIds;
-      if (collection[rootId]) {
-        resolve(collection);  // Item and its dependents are already in list or are queued
-
-      } else {
-        // Add the id as a placeholder to show that it will be fetched
-        const getItemPromise = mFullItem.getFullItem(rootId, requestOptions);
-        collection[rootId] = getItemPromise;
-
-        // Get the specified item
-        getItemPromise
-        .then(
-          fullItem => {
-            // Set the value keyed by the id
-            collection[rootId] = fullItem;
-
-            // Trace item dependencies
-            if (fullItem.dependencies.length === 0) {
-              resolve(collection);
-
-            } else {
-              // Get its dependents, asking each to get its dependents via
-              // recursive calls to this function
-              const dependentDfds:Array<Promise<IFullItemHash>> = [];
-
-              fullItem.dependencies.forEach(
-                dependentId => {
-                  if (!collection[dependentId]) {
-                    dependentDfds.push(getFullItemHierarchy(dependentId, requestOptions, collection));
-                  }
-                }
-              );
-              Promise.all(dependentDfds)
-              .then(
-                () => {
-                  resolve(collection);
-                },
-                (error:ArcGISRequestError) => reject(error)
-              );
-            }
-          },
-          (error:ArcGISRequestError) => reject(error)
-        );
-      }
-
-    } else {
-      // Handle a list of one or more AGOL ids by stepping through the list
-      // and calling this function recursively
-      const getHierarchyPromise:Array<Promise<IFullItemHash>> = [];
-
-      rootIds.forEach(rootId => {
-        getHierarchyPromise.push(getFullItemHierarchy(rootId, requestOptions, collection));
-      });
-      Promise.all(getHierarchyPromise)
-      .then(
-        () => {
-          resolve(collection);
-        },
-        (error:ArcGISRequestError) => reject(error)
-      );
     }
   });
 }
