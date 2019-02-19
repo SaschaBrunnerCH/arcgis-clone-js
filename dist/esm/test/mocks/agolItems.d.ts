@@ -1,0 +1,18 @@
+export declare function get200Failure(): any;
+export declare function get400Failure(): any;
+export declare function get400FailureResponse(): any;
+export declare function getAGOLItem(type?: string, url?: string): any;
+export declare function getSolutionItem(): any;
+export declare function getItemWithoutItemProp(): any;
+export declare function getTrimmedAGOLItem(): any;
+export declare function getNoNameAGOLFeatureServiceItem(): any;
+export declare function getAGOLItemData(type?: string): any;
+export declare function getAGOLItemDataWMAGroup(): any;
+export declare function getAGOLItemDataWMANoWebmapOrGroup(): any;
+export declare function getItemDataWidgetlessDashboard(): any;
+export declare function getAGOLItemResources(testCase?: string): any;
+export declare function getAGOLGroup(): any;
+export declare function getAGOLGroupContentsList(numToPutIntoGroup: number): any;
+export declare function getAGOLService(layers?: any, tables?: any): any;
+export declare function getAGOLLayerOrTable(id: number, name: string, type: string, relationships?: any): any;
+export declare function createAGOLRelationship(id: number, relatedTableId: number, role: string): any;

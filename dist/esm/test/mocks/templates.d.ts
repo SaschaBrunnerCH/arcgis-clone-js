@@ -1,0 +1,14 @@
+import * as mInterfaces from "../../src/interfaces";
+export declare function getSolution(templates: mInterfaces.ITemplate[]): mInterfaces.ISolutionItem;
+export declare function getItemTemplatePart(type: string, dependencies?: string[], url?: string): any;
+export declare function getDashboardTemplatePartNoWidgets(): any;
+export declare function getTemplatePartNoData(type: string): any;
+export declare function getTemplatePartNoExtent(type: string): any;
+export declare function getFeatureServiceTemplatePartNoRelationships(): any;
+export declare function getFourItemFeatureServiceTemplatePart(): any;
+export declare function getGroupTemplatePart(dependencies?: string[]): any;
+export declare function getWebMappingApplicationTemplate(): mInterfaces.ITemplate[];
+export declare function getWebMappingApplicationTemplateGroup(): mInterfaces.ITemplate[];
+export declare function getWebMappingApplicationTemplateNoWebmapOrGroup(): mInterfaces.ITemplate[];
+export declare function getItemTemplateData(type?: string): any;
+export declare function removeEditFieldsInfoField(layerOrTable: any): any;
