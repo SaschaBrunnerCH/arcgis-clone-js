@@ -119,9 +119,9 @@ export function createItemFromTemplate (
               mCommon.finalCallback(itemTemplate.key, true, progressCallback);
               resolve(itemTemplate);
             },
-            () => {
+            (e) => {
               mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-              reject({ success: false });
+              reject({ success: false, error: e.error ? e.error : e });
             }
                 );
         } else {
@@ -129,9 +129,9 @@ export function createItemFromTemplate (
           reject({ success: false });
         }
       },
-      () => {
+      (e) => {
         mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-        reject({ success: false });
+        reject({ success: false, error: e.error ? e.error : e });
       }
     );
   });

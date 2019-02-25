@@ -65,13 +65,13 @@ export function createSolutionItem (
               updatedSolutionItem => {
                 resolve(updatedSolutionItem);
               },
-              () => reject({ success: false })
+              (e) => reject({ success: false, error: e.error ? e.error : e })
             )
           },
-          () => reject({ success: false })
+          (e) => reject({ success: false, error: e.error ? e.error : e })
         );
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 }
@@ -119,7 +119,7 @@ export function deploySolutionItem  (
 
           runThroughChecklistInParallel();
         },
-        () => reject({ success: false })
+        (e) => reject({ success: false, error: e.error ? e.error : e })
       );
     }
 
@@ -135,7 +135,7 @@ export function deploySolutionItem  (
       Promise.all(awaitAllItems)
       .then(
         clonedSolutionItems => resolve(clonedSolutionItems),
-        () => reject({ success: false })
+        (e) => reject({ success: false, error: e.error ? e.error : e })
       );
     }
     // -------------------------------------------------------------------------
@@ -156,7 +156,7 @@ export function deploySolutionItem  (
           settings.folderId = createdFolderResponse.folder.id;
           launchDeployment();
         },
-        () => reject({ success: false })
+        (e) => reject({ success: false, error: e.error ? e.error : e })
       );
     }
   });
@@ -299,7 +299,7 @@ export function createDeployedSolutionAgoItem (
         }
         resolve(deployedSolutionItem);
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 }
@@ -349,10 +349,10 @@ export function createItemFromTemplateWhenReady (
         itemTemplate.fcns.createItemFromTemplate(itemTemplate, settings, requestOptions, progressCallback)
         .then(
           itemClone => resolve(itemClone),
-          () => reject({ success: false })
+          (e) => reject({ success: false, error: e.error ? e.error : e })
         )
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 
@@ -422,11 +422,11 @@ export function createItemTemplates (
                 () => {
                   resolve(existingTemplates);
                 },
-                () => reject({ success: false })
+                (e) => reject({ success: false, error: e.error ? e.error : e })
               );
             }
           },
-          () => reject({ success: false })
+          (e) => reject({ success: false, error: e.error ? e.error : e })
         );
       }
 
@@ -443,7 +443,7 @@ export function createItemTemplates (
         () => {
           resolve(existingTemplates);
         },
-        () => reject({ success: false })
+        (e) => reject({ success: false, error: e.error ? e.error : e })
       );
 
     } else {
@@ -496,7 +496,7 @@ export function createSolutionAgoItem (
         solutionItem.item.url = orgUrl + "/home/item.html?id=" + createResponse.id;
         resolve(solutionItem);
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 }
@@ -690,7 +690,7 @@ function updateSolutionAgoItem (
     mCommon.updateItemData(solutionItem.item.id, solutionItem.data, requestOptions)
     .then(
       () => resolve(solutionItem),
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     )
   });
 }

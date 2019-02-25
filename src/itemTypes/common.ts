@@ -93,7 +93,7 @@ export function createItemWithData (
                 id: results2.itemId
               })
             },
-            () => reject({ success: false })
+            (e) => reject({ success: false, error: e.error ? e.error : e })
           );
         } else {
           resolve({
@@ -102,7 +102,7 @@ export function createItemWithData (
           })
         }
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 }
@@ -214,7 +214,7 @@ export function updateItemData (
       updateResp => {
         resolve(id);
       },
-      () => reject()
+      (e) => reject({error: e.error ? e.error : e })
     );
   });
 }
@@ -247,7 +247,7 @@ export function updateItemURL (
       updateResp => {
         resolve(id);
       },
-      () => reject()
+      (e) => reject({ error: e.error ? e.error : e })
     );
   });
 }

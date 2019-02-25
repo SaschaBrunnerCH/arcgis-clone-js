@@ -45,7 +45,7 @@ export function convertItemToTemplate (
         itemTemplate.dependencies = dependencies;
         resolve(itemTemplate);
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     )
   });
 }
@@ -96,9 +96,9 @@ export function createItemFromTemplate (
               mCommon.finalCallback(itemTemplate.key, true, progressCallback);
               resolve(itemTemplate);
             },
-            () => {
+            (e) => {
               mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-              reject({ success: false });
+              reject({ success: false, error: e.error ? e.error : e });
             }
                 );
         } else {
@@ -106,9 +106,9 @@ export function createItemFromTemplate (
           reject({ success: false });
         }
       },
-      () => {
+      (e) => {
         mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-        reject({ success: false });
+        reject({ success: false, error: e.error ? e.error : e });
       }
     );
   });
@@ -150,9 +150,9 @@ export function addGroupMembers (
               });
               resolve2();
             },
-            () => {
+            (e) => {
               mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-              reject2({ success: false });
+              reject2({ success: false, error: e.error ? e.error : e });
             }
           );
         }));
@@ -161,7 +161,7 @@ export function addGroupMembers (
       Promise.all(awaitGroupAdds)
       .then(
         () => resolve(),
-        () => reject({ success: false })
+        (e) => reject({ success: false, error: e.error ? e.error : e })
       );
     } else {
       // No items in this group
@@ -200,7 +200,7 @@ export function getGroupContents (
 
         resolve(contents);
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 }
@@ -237,7 +237,7 @@ export function getGroupContentsTranche (
                 // Append all of the following tranches to this tranche and return it
                 resolve(trancheIds.concat(allSubsequentTrancheIds));
               },
-              () => reject({ success: false })
+              (e) => reject({ success: false, error: e.error ? e.error : e })
             );
           } else {
             resolve(trancheIds);
@@ -246,7 +246,7 @@ export function getGroupContentsTranche (
           resolve([]);
         }
       },
-      () => reject({ success: false })
+      (e) => reject({ success: false, error: e.error ? e.error : e })
     );
   });
 }
