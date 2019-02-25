@@ -27,7 +27,7 @@ import { ITemplate, IProgressUpdate } from "../interfaces";
 
 // -- Create Bundle Process ------------------------------------------------------------------------------------------//
 
-export function convertItemToTemplate (
+export function convertItemToTemplate(
   itemTemplate: ITemplate,
   requestOptions?: IUserRequestOptions
 ): Promise<ITemplate> {
@@ -39,19 +39,19 @@ export function convertItemToTemplate (
     mCommon.doCommonTemplatizations(itemTemplate);
 
     fleshOutFeatureService(itemTemplate, requestOptions)
-    .then(
-      () => {
-        // Extract dependencies
-        extractDependencies(itemTemplate, requestOptions).then((dependencies) => {
-          itemTemplate.dependencies = dependencies;
+      .then(
+        () => {
+          // Extract dependencies
+          extractDependencies(itemTemplate, requestOptions).then((dependencies) => {
+            itemTemplate.dependencies = dependencies;
 
-          resolve(itemTemplate);
+            resolve(itemTemplate);
+          },
+            (e) => reject({ success: false, error: e.error ? e.error : e })
+          );
         },
         (e) => reject({ success: false, error: e.error ? e.error : e })
-        );
-      },
-      (e) => reject({ success: false, error: e.error ? e.error : e })
-    );
+      );
   });
 }
 
@@ -68,11 +68,11 @@ export function convertItemToTemplate (
  * @return A promise that will resolve with the id of the created item
  * @protected
  */
-export function createItemFromTemplate (
+export function createItemFromTemplate(
   itemTemplate: ITemplate,
   settings: any,
   requestOptions: IUserRequestOptions,
-  progressCallback?: (update:IProgressUpdate) => void
+  progressCallback?: (update: IProgressUpdate) => void
 ): Promise<ITemplate> {
   progressCallback && progressCallback({
     processId: itemTemplate.key,
@@ -103,59 +103,59 @@ export function createItemFromTemplate (
       status: "creating",
     });
     featureServiceAdmin.createFeatureService(createOptions)
-    .then(
-      createResponse => {
-        // Add the new item to the settings list
-        settings[itemTemplate.itemId] = {
-          id: createResponse.serviceItemId,
-          url: createResponse.serviceurl
-        };
-        itemTemplate.itemId = itemTemplate.item.id = createResponse.serviceItemId;
-        itemTemplate = adlib.adlib(itemTemplate, settings);
-        itemTemplate.item.url = createResponse.serviceurl;
+      .then(
+        createResponse => {
+          // Add the new item to the settings list
+          settings[itemTemplate.itemId] = {
+            id: createResponse.serviceItemId,
+            url: createResponse.serviceurl
+          };
+          itemTemplate.itemId = itemTemplate.item.id = createResponse.serviceItemId;
+          itemTemplate = adlib.adlib(itemTemplate, settings);
+          itemTemplate.item.url = createResponse.serviceurl;
 
-        // Update item using a unique name because createFeatureService doesn't provide a way to specify
-        // snippet, description, etc.
-        const updateOptions:items.IItemUpdateRequestOptions = {
-          item: {
-            id: itemTemplate.itemId,
-            title: itemTemplate.item.title,
-            snippet: itemTemplate.item.snippet,
-            description: itemTemplate.item.description,
-            accessInfo: itemTemplate.item.accessInfo,
-            licenseInfo: itemTemplate.item.licenseInfo,
-            text: itemTemplate.data
-          },
-          ...requestOptions
-        };
+          // Update item using a unique name because createFeatureService doesn't provide a way to specify
+          // snippet, description, etc.
+          const updateOptions: items.IItemUpdateRequestOptions = {
+            item: {
+              id: itemTemplate.itemId,
+              title: itemTemplate.item.title,
+              snippet: itemTemplate.item.snippet,
+              description: itemTemplate.item.description,
+              accessInfo: itemTemplate.item.accessInfo,
+              licenseInfo: itemTemplate.item.licenseInfo,
+              text: itemTemplate.data
+            },
+            ...requestOptions
+          };
 
-        items.updateItem(updateOptions)
-        .then(
-          () => {
-            // Add the feature service's layers and tables to it
-            addFeatureServiceLayersAndTables(itemTemplate, settings, requestOptions, progressCallback)
+          items.updateItem(updateOptions)
             .then(
               () => {
-                mCommon.finalCallback(itemTemplate.key, true, progressCallback);
-                resolve(itemTemplate);
+                // Add the feature service's layers and tables to it
+                addFeatureServiceLayersAndTables(itemTemplate, settings, requestOptions, progressCallback)
+                  .then(
+                    () => {
+                      mCommon.finalCallback(itemTemplate.key, true, progressCallback);
+                      resolve(itemTemplate);
+                    },
+                    (e) => {
+                      mCommon.finalCallback(itemTemplate.key, false, progressCallback);
+                      reject({ success: false, error: e.error ? e.error : e });
+                    }
+                  );
               },
               (e) => {
                 mCommon.finalCallback(itemTemplate.key, false, progressCallback);
                 reject({ success: false, error: e.error ? e.error : e });
               }
             );
-          },
-          (e) => {
-            mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-            reject({ success: false, error: e.error ? e.error : e });
-          }
-        );
-      },
-      (e) => {
-        mCommon.finalCallback(itemTemplate.key, false, progressCallback);
-        reject({ success: false, error: e.error ? e.error : e });
-      }
-    )
+        },
+        (e) => {
+          mCommon.finalCallback(itemTemplate.key, false, progressCallback);
+          reject({ success: false, error: e.error ? e.error : e });
+        }
+      )
   });
 }
 
@@ -188,7 +188,7 @@ interface IRelationship {
   /**
    * Relationship id and the ids of the items that it is related to.
    */
-  [id:string]: string[];
+  [id: string]: string[];
 }
 
 /**
@@ -218,7 +218,7 @@ export function extractDependencies(
           resolve(dependencies);
         }
       },
-      (e) => reject({ success: false, error: e.error ? e.error : e })
+        (e) => reject({ success: false, error: e.error ? e.error : e })
       );
     } else {
       resolve(dependencies);
@@ -236,26 +236,26 @@ export function extractDependencies(
  * @return A promise that will resolve when fullItem has been updated
  * @protected
  */
-export function addFeatureServiceLayersAndTables (
+export function addFeatureServiceLayersAndTables(
   itemTemplate: ITemplate,
   settings: any,
   requestOptions: IUserRequestOptions,
-  progressCallback?: (update:IProgressUpdate) => void
+  progressCallback?: (update: IProgressUpdate) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
 
     // Sort layers and tables by id so that they're added with the same ids
-    const properties:any = itemTemplate.properties as IFeatureServiceProperties;
-    const layersAndTables:any[] = [];
+    const properties: any = itemTemplate.properties as IFeatureServiceProperties;
+    const layersAndTables: any[] = [];
 
-    (properties.layers || []).forEach(function (layer:any) {
+    (properties.layers || []).forEach(function (layer: any) {
       layersAndTables[layer.id] = {
         item: layer,
         type: "layer"
       };
     });
 
-    (properties.tables || []).forEach(function (table:any) {
+    (properties.tables || []).forEach(function (table: any) {
       layersAndTables[table.id] = {
         item: table,
         type: "table"
@@ -263,59 +263,59 @@ export function addFeatureServiceLayersAndTables (
     });
 
     // Hold a hash of relationships
-    const relationships:IRelationship = {};
+    const relationships: IRelationship = {};
 
     // Add the service's layers and tables to it
     if (layersAndTables.length > 0) {
       updateFeatureServiceDefinition(itemTemplate.itemId, itemTemplate.item.url, layersAndTables,
         settings, relationships, requestOptions, itemTemplate.key, progressCallback)
-      .then(
-        () => {
-          // Restore relationships for all layers and tables in the service
-          const awaitRelationshipUpdates:Array<Promise<void>> = [];
-          Object.keys(relationships).forEach(
-            id => {
-              awaitRelationshipUpdates.push(new Promise((resolveFn, rejectFn) => {
-                const options = {
-                  params: {
-                    updateFeatureServiceDefinition: {
-                      relationships: relationships[id]
-                    }
-                  },
-                  ...requestOptions
-                };
-                featureServiceAdmin.addToServiceDefinition(itemTemplate.item.url + "/" + id, options)
-                .then(
-                  () => {
-                    progressCallback && progressCallback({
-                      processId: itemTemplate.key,
-                      status: "updated relationship"
-                    });
-                    resolveFn();
-                  },
-                  (e) => rejectFn(e)
-                );
-              }));
-            }
-          );
-          Promise.all(awaitRelationshipUpdates)
-          .then(
-            () => resolve(),
-            (e) => reject({ success: false, error: e.error ? e.error : e })
-          );
-        },
-        (e) => reject({ success: false, error: e.error ? e.error : e })
-      );
+        .then(
+          () => {
+            // Restore relationships for all layers and tables in the service
+            const awaitRelationshipUpdates: Array<Promise<void>> = [];
+            Object.keys(relationships).forEach(
+              id => {
+                awaitRelationshipUpdates.push(new Promise((resolveFn, rejectFn) => {
+                  const options = {
+                    params: {
+                      updateFeatureServiceDefinition: {
+                        relationships: relationships[id]
+                      }
+                    },
+                    ...requestOptions
+                  };
+                  featureServiceAdmin.addToServiceDefinition(itemTemplate.item.url + "/" + id, options)
+                    .then(
+                      () => {
+                        progressCallback && progressCallback({
+                          processId: itemTemplate.key,
+                          status: "updated relationship"
+                        });
+                        resolveFn();
+                      },
+                      (e) => rejectFn(e)
+                    );
+                }));
+              }
+            );
+            Promise.all(awaitRelationshipUpdates)
+              .then(
+                () => resolve(),
+                (e) => reject({ success: false, error: e.error ? e.error : e })
+              );
+          },
+          (e) => reject({ success: false, error: e.error ? e.error : e })
+        );
     } else {
       resolve();
     }
   });
 }
 
-export function countRelationships (
+export function countRelationships(
   layers: any[]
 ): number {
-  const reducer = (accumulator:number, currentLayer:any) =>
+  const reducer = (accumulator: number, currentLayer: any) =>
     accumulator + (currentLayer.relationships ? currentLayer.relationships.length : 0);
 
   return layers.reduce(reducer, 0);
@@ -330,7 +330,7 @@ export function countRelationships (
  * @return A promise that will resolve after the admin api has been checked
  * @protected
  */
-export function getAdminLayersAndTables (
+export function getAdminLayersAndTables(
   itemTemplate: ITemplate,
   requestOptions: IUserRequestOptions
 ): Promise<any> {
@@ -362,12 +362,12 @@ export function getAdminLayersAndTables (
  * @return A promise that will resolve when fullItem has been updated
  * @protected
  */
-export function fleshOutFeatureService (
+export function fleshOutFeatureService(
   itemTemplate: ITemplate,
   requestOptions: IUserRequestOptions
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const properties:IFeatureServiceProperties = {
+    const properties: IFeatureServiceProperties = {
       service: {},
       layers: [],
       tables: []
@@ -380,39 +380,39 @@ export function fleshOutFeatureService (
     // Get the service description
     const serviceUrl = itemTemplate.item.url;
     request(serviceUrl + "?f=json", requestOptions)
-    .then(
-      serviceData => {
-        serviceData.serviceItemId = mCommon.templatize(serviceData.serviceItemId);
-        properties.service = serviceData;
+      .then(
+        serviceData => {
+          serviceData.serviceItemId = mCommon.templatize(serviceData.serviceItemId);
+          properties.service = serviceData;
 
-        getAdminLayersAndTables(itemTemplate, requestOptions).then(adminData => {
-          // Get the affiliated layer and table items
-          Promise.all([
-            getLayers(serviceUrl, serviceData["layers"], adminData.adminLayers, requestOptions),
-            getLayers(serviceUrl, serviceData["tables"], adminData.adminTables, requestOptions)
-          ])
-            .then(
-              results => {
-                properties.layers = results[0];
-                properties.tables = results[1];
-                itemTemplate.properties = properties;
+          getAdminLayersAndTables(itemTemplate, requestOptions).then(adminData => {
+            // Get the affiliated layer and table items
+            Promise.all([
+              getLayers(serviceUrl, serviceData["layers"], adminData.adminLayers, requestOptions),
+              getLayers(serviceUrl, serviceData["tables"], adminData.adminTables, requestOptions)
+            ])
+              .then(
+                results => {
+                  properties.layers = results[0];
+                  properties.tables = results[1];
+                  itemTemplate.properties = properties;
 
-                itemTemplate.estimatedDeploymentCostFactor +=
-                  properties.layers.length +               // layers
-                  countRelationships(properties.layers) +  // layer relationships
-                  properties.tables.length +               // tables & estimated single relationship for each
-                  countRelationships(properties.tables);   // table relationships
+                  itemTemplate.estimatedDeploymentCostFactor +=
+                    properties.layers.length +               // layers
+                    countRelationships(properties.layers) +  // layer relationships
+                    properties.tables.length +               // tables & estimated single relationship for each
+                    countRelationships(properties.tables);   // table relationships
 
-                resolve();
-              },
-              (e) => reject({ success: false, error: e.error ? e.error : e })
-            );
+                  resolve();
+                },
+                (e) => reject({ success: false, error: e.error ? e.error : e })
+              );
+          },
+            (e) => reject({ success: false, error: e.error ? e.error : e })
+          );
         },
         (e) => reject({ success: false, error: e.error ? e.error : e })
-        );
-      },
-      (e) => reject({ success: false, error: e.error ? e.error : e })
-    );
+      );
   });
 }
 
@@ -459,9 +459,9 @@ export function getAdminLayerInfo(
  * @param obj object instance to test and update
  * @param prop name of the property we are after
  */
-function deleteProp(obj: any, prop:string) {
+function deleteProp(obj: any, prop: string) {
   if (obj && obj.hasOwnProperty(prop)) {
-    delete(obj[prop]);
+    delete (obj[prop]);
   }
 }
 
@@ -474,7 +474,7 @@ function deleteProp(obj: any, prop:string) {
  * @return A promise that will resolve with a list of the enhanced layers
  * @protected
  */
-export function getLayers (
+export function getLayers(
   serviceUrl: string,
   layerList: any[],
   adminList: any[],
@@ -485,30 +485,30 @@ export function getLayers (
       resolve([]);
     }
 
-    const requestsDfd:Array<Promise<any>> = [];
+    const requestsDfd: Array<Promise<any>> = [];
     layerList.forEach(layer => {
       requestsDfd.push(request(serviceUrl + "/" + layer["id"] + "?f=json", requestOptions));
     });
 
     // Wait until all layers are heard from
     Promise.all(requestsDfd)
-    .then(
-      layers => {
-        // Remove the editFieldsInfo because it references fields that may not be in the layer/table;
-        // templatize the layer's serviceItemId
-        layers.forEach(layer => {
-          layer["editFieldsInfo"] = null;
-          layer["serviceItemId"] = mCommon.templatize(layer["serviceItemId"]);
+      .then(
+        layers => {
+          // Remove the editFieldsInfo because it references fields that may not be in the layer/table;
+          // templatize the layer's serviceItemId
+          layers.forEach(layer => {
+            layer["editFieldsInfo"] = null;
+            layer["serviceItemId"] = mCommon.templatize(layer["serviceItemId"]);
 
-          // Update adminLayerInfo and add to layer
-          if (adminList && adminList.indexOf(layer["id"]) > -1) {    
-            layer["adminLayerInfo"] = getAdminLayerInfo(adminList, layer["id"]);
-          }
-        });
-        resolve(layers);
-      },
-      (e) => reject({ success: false, error: e.error ? e.error : e })
-    );
+            // Update adminLayerInfo and add to layer
+            if (adminList && adminList.indexOf(layer["id"]) > -1) {
+              layer["adminLayerInfo"] = getAdminLayerInfo(adminList, layer["id"]);
+            }
+          });
+          resolve(layers);
+        },
+        (e) => reject({ success: false, error: e.error ? e.error : e })
+      );
   });
 }
 
@@ -533,7 +533,7 @@ function updateFeatureServiceDefinition(
   relationships: IRelationship,
   requestOptions: IUserRequestOptions,
   key: string,
-  progressCallback?: (update:IProgressUpdate) => void
+  progressCallback?: (update: IProgressUpdate) => void
 ): Promise<void> {
   // Launch the adds serially because server doesn't support parallel adds
   return new Promise((resolve, reject) => {
@@ -551,7 +551,7 @@ function updateFeatureServiceDefinition(
         item.relationships = [];
       }
 
-      const options:featureServiceAdmin.IAddToServiceDefinitionRequestOptions = {
+      const options: featureServiceAdmin.IAddToServiceDefinitionRequestOptions = {
         ...requestOptions
       };
 
@@ -563,22 +563,22 @@ function updateFeatureServiceDefinition(
       }
 
       featureServiceAdmin.addToServiceDefinition(serviceUrl, options)
-      .then(
-        () => {
-          progressCallback && progressCallback({
-            processId: key,
-            status: "added layer"
-          });
+        .then(
+          () => {
+            progressCallback && progressCallback({
+              processId: key,
+              status: "added layer"
+            });
 
-          updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, settings, relationships,
-            requestOptions, key, progressCallback)
-          .then(
-            () => resolve(),
-            (e) => reject({ success: false, error: e.error ? e.error : e })
-          );
-        },
-        (e) => reject({ success: false, error: e.error ? e.error : e })
-      );
+            updateFeatureServiceDefinition(serviceItemId, serviceUrl, listToAdd, settings, relationships,
+              requestOptions, key, progressCallback)
+              .then(
+                () => resolve(),
+                (e) => reject({ success: false, error: e.error ? e.error : e })
+              );
+          },
+          (e) => reject({ success: false, error: e.error ? e.error : e })
+        );
     } else {
       resolve();
     }
